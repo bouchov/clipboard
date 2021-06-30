@@ -38,17 +38,17 @@ public class MainController {
 
     @PostMapping
     public AccountBean login(
-            @RequestParam String login,
+            @RequestParam String name,
             @RequestParam String password) {
         Long userId = (Long) session.getAttribute(SessionAttributes.USER_ID);
-        Account user = accountRepository.findByName(login)
-                .orElseThrow(() -> new UserNotFoundException(login));
+        Account user = accountRepository.findByName(name)
+                .orElseThrow(() -> new UserNotFoundException(name));
         if (userId != null && !Objects.equals(user.getId(), userId)) {
             session.invalidate();
             throw new NeedReLoginException();
         }
-        if (!Objects.equals(password, user.getPassword())) {
-            throw new UserNotFoundException(login);
+        if (!Password.isEqual(user.getPassword(), password)) {
+            throw new UserNotFoundException(name);
         }
         session.setAttribute(SessionAttributes.USER_ID, user.getId());
         return new AccountBean(user);
