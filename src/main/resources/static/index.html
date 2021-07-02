@@ -3,9 +3,216 @@
 <head>
     <meta charset="UTF-8">
     <title>Clipboard Application</title>
-  <link rel="stylesheet" type="text/css" href="clipboard.css">
+    <link rel="stylesheet" type="text/css" href="clipboard.css">
 </head>
-<body>
-
+<body onload="initApp()">
+<div id="loadingWindow" class="loading fade-in">
+    <div class="center loading-spin"></div>
+</div>
+<div id="messageWindow" class="modal">
+    <div class="menu-bar">
+        <span class="menu-button" onclick="doHideMessageWindow()" title="Close">&cross;</span>
+    </div>
+    <form class="modal-content animate">
+        <div style="align-content: center; border: 1px solid #cccccc">
+            <p id="messageWindow-text">&nbsp;</p>
+        </div>
+        <button type="submit" class="dialog-button-close" id="messageWindow-submit">Закрыть</button>
+    </form>
+</div>
+<div id="loginWindow" class="modal">
+    <div class="menu-bar">
+        <span class="menu-button" onclick="doShowClipboardWindow()" title="Close">&cross;</span>
+    </div>
+    <form class="modal-content animate">
+        <h1>Вход</h1>
+        <div class="table-row">
+            <div class="table-cell" style="width: 20%">
+                <div class="table-cell-content, right_label">
+                    <label for="loginWindow-name">Логин:</label>
+                </div>
+            </div>
+            <div class="table-cell" style="width: 80%">
+                <div class="table-cell-content">
+                    <input type="text" id="loginWindow-name">
+                </div>
+            </div>
+        </div>
+        <div class="table-row">
+            <div class="table-cell" style="width: 20%">
+                <div class="table-cell-content, right_label">
+                    <label for="loginWindow-password">Пароль:</label>
+                </div>
+            </div>
+            <div class="table-cell" style="width: 80%">
+                <div class="table-cell-content">
+                    <input type="password" id="loginWindow-password">
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="dialog-button" id="loginWindow-submit">Войти</button>
+        <button onclick="showRegisterWindow()" type="button" class="dialog-button">Регистрация</button>
+    </form>
+</div>
+<div id="clipboardWindow" class="modal">
+    <div class="menu-bar">
+        <span class="menu-button" onclick="showContentClipboard()" title="View content">&#9215;</span>
+        <span class="menu-button" onclick="showFilesClipboard()" title="Send files">&#128462;</span>
+        <span class="menu-button" onclick="showTextClipboard()" title="Send text">&#84;</span>
+        <span class="menu-button" onclick="doClearClipboard()" title="Clear">&#9003;</span>
+        <span class="menu-button" onclick="doEditDevice()" title="Edit device">&#128187;</span>
+        <span class="menu-button" onclick="showLoginWindow()" title="Close">&cross;</span>
+    </div>
+    <form class="modal-content animate">
+        <h1>Clipboard</h1>
+        <div id="clipboardWindow-textView">
+            <div class="table-row">
+                <div class="table-cell" style="width: 100%">
+                    <div class="table-cell-content">
+                        <label>
+                            <textarea id="clipboardWindow-text" style="resize: vertical"></textarea>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="table-row">
+                <div class="table-cell" style="width: 100%">
+                    <div class="table-cell-content">
+                        <button type="submit" class="dialog-button">Отправить</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="clipboardWindow-downloadView">
+            <div class="table-row">
+                <div class="table-cell" style="width: 2em">
+                    <div class="table-cell-content">
+                        <input type="checkbox" name="files" value="1" id="clipboardWindow-file1">
+                    </div>
+                </div>
+                <div class="table-cell">
+                    <div class="table-cell-content">
+                        <label for="clipboardWindow-file1">файл №1</label>
+                    </div>
+                </div>
+            </div>
+            <div class="table-row">
+                <div class="table-cell" style="width: 2em">
+                    <div class="table-cell-content">
+                        <input type="checkbox" name="files" value="2" id="clipboardWindow-file2">
+                    </div>
+                </div>
+                <div class="table-cell">
+                    <div class="table-cell-content">
+                        <label for="clipboardWindow-file2">файл №2</label>
+                    </div>
+                </div>
+            </div>
+            <div class="table-row">
+                <div class="table-cell" style="width: 100%">
+                    <div class="table-cell-content">
+                        <button type="submit" class="dialog-button">Скачать</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="clipboardWindow-uploadView">
+            <div class="table-row">
+                <div class="table-cell" style="width: 100%">
+                    <div class="table-cell-content">
+                        <p>файл №7</p>
+                    </div>
+                </div>
+            </div>
+            <div class="table-row">
+                <div class="table-cell" style="width: 100%">
+                    <div class="table-cell-content">
+                        <button type="submit" class="dialog-button">Поделиться</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="table-footer"></div>
+    </form>
+</div>
+<div id="deviceWindow" class="modal">
+    <div class="menu-bar">
+        <span class="menu-button" onclick="doShowLoginWindow()" title="Close">&cross;</span>
+    </div>
+    <form class="modal-content animate">
+        <h1>Выбор устройства</h1>
+        <div class="table-row">
+            <div class="table-cell" style="width: 20%">
+                <div class="table-cell-content, right_label">
+                    <label for="deviceWindow-name">Новое:</label>
+                </div>
+            </div>
+            <div class="table-cell" style="width: 60%">
+                <div class="table-cell-content">
+                    <input type="text" id="deviceWindow-name">
+                </div>
+            </div>
+            <div class="table-cell" style="width: 20%">
+                <div class="table-cell-content">
+                    <label>
+                        <select id="deviceWindow-type" name="type" required>
+                            <option value="OTHER" selected>PC</option>
+                            <option value="ANDROID">Android</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="table-row">
+            <div class="table-cell" style="width: 20%">
+                <div class="table-cell-content, right_label">
+                    <label for="deviceWindow-select">Выбрать:</label>
+                </div>
+            </div>
+            <div class="table-cell" style="width: 80%">
+                <div class="table-cell-content">
+                    <select id="deviceWindow-select" name="token" required>
+                        <option disabled selected value="EMPTY">Выберите устройство</option>
+                        <option value="0-0">Мой домашний комп</option>
+                        <option value="1-1">Рабочая лошадка</option>
+                        <option value="2-2">A2 lite</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="dialog-button" id="deviceWindow-submit">Сохранить</button>
+    </form>
+</div>
+<div id="deviceInfo" style="left: 100px; position: absolute;">
+    <div id="deviceInfo-name">
+        <p>Гостъ: device 1</p>
+    </div>
+</div>
 </body>
 </html>
+<script type="text/javascript" src="common.js"></script>
+<script type="text/javascript" src="clipboard.js"></script>
+<script>
+    document.onreadystatechange = function() {
+        if (document.readyState !== 'complete') {
+            document.querySelector('body').style.visibility = 'hidden';
+            loadingWindow.show();
+        } else {
+            loadingWindow.hide();
+            document.querySelector('body').style.visibility = 'visible';
+        }
+    };
+
+    function initApp() {
+        deviceInfo.initApplication();
+    }
+
+    function doShowLoginWindow() {
+        loginWindow.show();
+    }
+
+    function doShowClipboardWindow() {
+        clipboardWindow.show();
+    }
+
+</script>

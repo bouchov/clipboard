@@ -15,16 +15,16 @@ public class Content extends BasicEntity {
     @ManyToOne(optional = false)
     private Device source;
     @Column(nullable = false)
-    private String name;
+    private String data;
     @Column
     private ContentType type;
 
     public Content() {
     }
 
-    public Content(Device source, String name, ContentType type) {
+    public Content(Device source, String data, ContentType type) {
         this.source = source;
-        this.name = name;
+        this.data = data;
         this.type = type;
     }
 
@@ -32,8 +32,8 @@ public class Content extends BasicEntity {
         return source;
     }
 
-    public String getName() {
-        return name;
+    public String getData() {
+        return data;
     }
 
     public ContentType getType() {
@@ -44,8 +44,8 @@ public class Content extends BasicEntity {
     public String toString() {
         return "[Content super=" + super.toString() +
                 ", source=" + source +
-                ", name=" + (name == null ? null : '\'' + name + '\'') +
                 ", type=" + type +
+                ", data=" + (data == null ? null : '\'' + data + '\'') +
                 ']';
     }
 }

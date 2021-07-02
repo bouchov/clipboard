@@ -1,8 +1,6 @@
 package com.bouchov.clipboard.entities;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.ManyToOne;
+import javax.persistence.*;
 import java.util.UUID;
 
 /**
@@ -12,6 +10,11 @@ import java.util.UUID;
  * Copyright 2014 ConnectiveGames LLC. All rights reserved.
  */
 @Entity
+@Table(name = "device",
+        uniqueConstraints = {
+        @UniqueConstraint(name = "device_uk",
+                columnNames = {"account_id", "name"})
+})
 public class Device extends BasicEntity {
     @Column(nullable = false)
     private String name;
@@ -22,16 +25,18 @@ public class Device extends BasicEntity {
     @Column
     private UUID token;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name="account_id", nullable=false, updatable=false)
     private Account account;
 
     public Device() {
     }
 
-    public Device(String name, DeviceType type, UUID token) {
+    public Device(String name, DeviceType type, UUID token, Account account) {
         this.name = name;
         this.type = type;
         this.token = token;
+        this.account = account;
     }
 
     public String getName() {
@@ -44,6 +49,10 @@ public class Device extends BasicEntity {
 
     public UUID getToken() {
         return token;
+    }
+
+    public Account getAccount() {
+        return account;
     }
 
     @Override

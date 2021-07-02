@@ -8,4 +8,5 @@ package com.bouchov.clipboard;
  */
 public interface SessionAttributes {
     String USER_ID = "USER_ID";
+    String DEVICE_ID = "DEVICE_ID";
 }

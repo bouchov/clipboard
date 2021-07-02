@@ -15,4 +15,7 @@ import org.springframework.data.repository.query.Param;
 public interface ContentRepository extends CrudRepository<Content,Long> {
     @Query("select C from Content C where C.source.account = :account")
     Page<Content> findAllByAccount(@Param("account") Account account, Pageable pageable);
+
+    @Query("delete from Content C where C.source.account = :account")
+    long deleteAllByAccount(@Param("account") Account account);
 }
