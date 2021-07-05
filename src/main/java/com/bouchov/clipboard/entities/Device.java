@@ -18,13 +18,10 @@ import java.util.UUID;
 public class Device extends BasicEntity {
     @Column(nullable = false)
     private String name;
-
     @Column(nullable = false)
     private DeviceType type;
-
     @Column
     private UUID token;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name="account_id", nullable=false, updatable=false)
     private Account account;

@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Optional;
+
 /**
  * Alexandre Y. Bouchov
  * Date: 30.06.2021
@@ -18,4 +20,6 @@ public interface ContentRepository extends CrudRepository<Content,Long> {
 
     @Query("delete from Content C where C.source.account = :account")
     long deleteAllByAccount(@Param("account") Account account);
+
+    Optional<Content> findByToken(String token);
 }

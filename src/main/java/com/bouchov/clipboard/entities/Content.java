@@ -14,22 +14,32 @@ import javax.persistence.ManyToOne;
 public class Content extends BasicEntity {
     @ManyToOne(optional = false)
     private Device source;
-    @Column(nullable = false)
-    private String data;
     @Column
     private ContentType type;
+    @Column(unique = true)
+    private String token;
+    @Column(nullable = false)
+    private String data;
 
     public Content() {
     }
 
-    public Content(Device source, String data, ContentType type) {
+    public Content(Device source, ContentType type, String data) {
         this.source = source;
-        this.data = data;
         this.type = type;
+        this.data = data;
     }
 
     public Device getSource() {
         return source;
+    }
+
+    public String getToken() {
+        return token;
+    }
+
+    public void setToken(String token) {
+        this.token = token;
     }
 
     public String getData() {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Clipboard Application</title>
-    <link rel="stylesheet" type="text/css" href="clipboard.css">
+    <link rel="stylesheet" type="text/css" href="/clipboard.css">
 </head>
 <body onload="initApp()">
 <div id="loadingWindow" class="loading fade-in">
@@ -76,9 +76,14 @@
                 </div>
             </div>
             <div class="table-row">
-                <div class="table-cell" style="width: 100%">
+                <div class="table-cell" style="width: 50%">
                     <div class="table-cell-content">
-                        <button type="submit" class="dialog-button">Отправить</button>
+                        <button type="submit" class="dialog-button">Сохранить</button>
+                    </div>
+                </div>
+                <div class="table-cell" style="width: 50%">
+                    <div class="table-cell-content">
+                        <button type="button" id="clipboardWindow-share" class="dialog-button">Поделиться</button>
                     </div>
                 </div>
             </div>
@@ -190,8 +195,8 @@
 </div>
 </body>
 </html>
-<script type="text/javascript" src="common.js"></script>
-<script type="text/javascript" src="clipboard.js"></script>
+<script type="text/javascript" src="/common.js"></script>
+<script type="text/javascript" src="/clipboard.js"></script>
 <script>
     document.onreadystatechange = function() {
         if (document.readyState !== 'complete') {

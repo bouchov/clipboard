@@ -305,7 +305,7 @@ class DeviceWindow extends WebForm {
                     form.log.warn('error saving device: ', xhttp.responseText);
                 }
             };
-            this.sendPost(xhttp, '/device', 'token=' + devToken);
+            this.sendJson(xhttp, '/device', {token: devToken});
         }
     }
 
@@ -328,7 +328,7 @@ class DeviceWindow extends WebForm {
                     form.log.warn('error saving device: ', xhttp.responseText);
                 }
             };
-            this.sendPost(xhttp, '/device', 'name=' + devName + '&type=' + devType);
+            this.sendJson(xhttp, '/device', {name: devName, type: devType});
         }
     }
 }
@@ -339,6 +339,8 @@ class ClipboardWindow extends WebForm {
         this.element = document.getElementById('clipboardWindow')
         this.textVew = document.getElementById('clipboardWindow-textView')
         this.textarea = document.getElementById('clipboardWindow-text')
+        this.shareButton = document.getElementById('clipboardWindow-share')
+        this.shareButton.addEventListener('click', doClickShareButton)
         this.downloadView = document.getElementById('clipboardWindow-downloadView')
         this.uploadView = document.getElementById('clipboardWindow-uploadView')
 
@@ -346,6 +348,15 @@ class ClipboardWindow extends WebForm {
 
         this.contents = []
         this.currentView = this.textVew
+    }
+
+    setContent(content) {
+        this.contents.forEach(function(c) {
+            if (c.id === content.id) {
+                c.data = content.data
+                c.token = content.token
+            }
+        })
     }
 
     saveContents(contents) {
@@ -373,6 +384,7 @@ class ClipboardWindow extends WebForm {
         this.downloadView.style.display = 'none';
         this.uploadView.style.display = 'none';
         if (this.currentView === this.textVew) {
+            this.shareButton.disabled = this.contents.length !== 1;
             this.textVew.style.display = 'block';
         }
         if (this.currentView === this.downloadView) {
@@ -405,6 +417,45 @@ class ClipboardWindow extends WebForm {
             this.sendJson(xhttp, '/clipboard', [{data: data, type: 'CLIPBOARD'}]);
         }
     }
+
+    doShare() {
+        if (this.currentView === this.textVew) {
+            if (this.contents.length === 1) {
+                let form = this;
+                if (this.contents[0].token) {
+                    form.hide()
+                    messageWindow.showMessage(this.generateShareLink(this.contents[0]),
+                        function() {form.show()})
+                } else {
+                    let form = this;
+                    let xhttp = new XMLHttpRequest();
+
+                    xhttp.onreadystatechange = function () {
+                        form.hide()
+                        if (this.status === 200) {
+                            form.log.log('WEB: <<< ' + xhttp.responseText);
+                            let content = JSON.parse(xhttp.responseText);
+                            form.setContent(content)
+                            messageWindow.showMessage(form.generateShareLink(content),
+                                function() {form.show()})
+                        } else {
+                            form.log.warn('error saving content: ', xhttp.responseText);
+                            messageWindow.showMessage(this.responseText, function() {form.show()})
+                        }
+                    };
+                    this.sendGet(xhttp, '/share/' + this.contents[0].id);
+                }
+            }
+        }
+    }
+
+    generateShareLink(content) {
+        if (!this.link) {
+            this.link = document.createElement('A')
+        }
+        this.link.href = '/shared/' + content.token
+        return this.link.href
+    }
 }
 
 var loadingWindow = new LoadingWindow()
@@ -434,4 +485,8 @@ function doSubmitLoginWindow(event) {
 
 function doSubmitClipboard(event) {
     clipboardWindow.doSubmit()
+}
+
+function doClickShareButton(event) {
+    clipboardWindow.doShare()
 }
