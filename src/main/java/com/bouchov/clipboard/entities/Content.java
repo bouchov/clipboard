@@ -1,8 +1,6 @@
 package com.bouchov.clipboard.entities;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.ManyToOne;
+import java.util.UUID;
 
 /**
  * Alexandre Y. Bouchov
@@ -10,28 +8,21 @@ import javax.persistence.ManyToOne;
  * Time: 17:49
  * Copyright 2014 ConnectiveGames LLC. All rights reserved.
  */
-@Entity
-public class Content extends BasicEntity {
-    @ManyToOne(optional = false)
-    private Device source;
-    @Column
+public class Content {
+    private Long accountId;
     private ContentType type;
-    @Column(unique = true)
+    private UUID source;
     private String token;
-    @Column(nullable = false)
     private String data;
 
     public Content() {
     }
 
-    public Content(Device source, ContentType type, String data) {
-        this.source = source;
+    public Content(Account account, ContentType type, UUID source, String data) {
+        this.accountId = account.getId();
         this.type = type;
+        this.source = source;
         this.data = data;
-    }
-
-    public Device getSource() {
-        return source;
     }
 
     public String getToken() {
@@ -42,6 +33,10 @@ public class Content extends BasicEntity {
         this.token = token;
     }
 
+    public Long getAccountId() {
+        return accountId;
+    }
+
     public String getData() {
         return data;
     }
@@ -50,11 +45,17 @@ public class Content extends BasicEntity {
         return type;
     }
 
+    public UUID getSource() {
+        return source;
+    }
+
     @Override
     public String toString() {
-        return "[Content super=" + super.toString() +
-                ", source=" + source +
+        return "[Content" +
+                ", accountId=" + accountId +
                 ", type=" + type +
+                ", source=" + source +
+                ", token=" + (token == null ? null : '\'' + token + '\'') +
                 ", data=" + (data == null ? null : '\'' + data + '\'') +
                 ']';
     }

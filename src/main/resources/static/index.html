@@ -57,7 +57,7 @@
 <div id="clipboardWindow" class="modal">
     <div class="menu-bar">
         <span class="menu-button" onclick="showContentClipboard()" title="View content">&#9215;</span>
-        <span class="menu-button" onclick="showFilesClipboard()" title="Send files">&#128462;</span>
+        <span class="menu-button" onclick="showUploadFilesClipboard()" title="Send files">&#128462;</span>
         <span class="menu-button" onclick="showTextClipboard()" title="Send text">&#84;</span>
         <span class="menu-button" onclick="doClearClipboard()" title="Clear">&#9003;</span>
         <span class="menu-button" onclick="doEditDevice()" title="Edit device">&#128187;</span>
@@ -125,7 +125,7 @@
             <div class="table-row">
                 <div class="table-cell" style="width: 100%">
                     <div class="table-cell-content">
-                        <p>файл №7</p>
+                        <input type="file" multiple id="clipboardWindow-uploadFile">
                     </div>
                 </div>
             </div>
@@ -138,54 +138,6 @@
             </div>
         </div>
         <div class="table-footer"></div>
-    </form>
-</div>
-<div id="deviceWindow" class="modal">
-    <div class="menu-bar">
-        <span class="menu-button" onclick="doShowLoginWindow()" title="Close">&cross;</span>
-    </div>
-    <form class="modal-content animate">
-        <h1>Выбор устройства</h1>
-        <div class="table-row">
-            <div class="table-cell" style="width: 20%">
-                <div class="table-cell-content, right_label">
-                    <label for="deviceWindow-name">Новое:</label>
-                </div>
-            </div>
-            <div class="table-cell" style="width: 60%">
-                <div class="table-cell-content">
-                    <input type="text" id="deviceWindow-name">
-                </div>
-            </div>
-            <div class="table-cell" style="width: 20%">
-                <div class="table-cell-content">
-                    <label>
-                        <select id="deviceWindow-type" name="type" required>
-                            <option value="OTHER" selected>PC</option>
-                            <option value="ANDROID">Android</option>
-                        </select>
-                    </label>
-                </div>
-            </div>
-        </div>
-        <div class="table-row">
-            <div class="table-cell" style="width: 20%">
-                <div class="table-cell-content, right_label">
-                    <label for="deviceWindow-select">Выбрать:</label>
-                </div>
-            </div>
-            <div class="table-cell" style="width: 80%">
-                <div class="table-cell-content">
-                    <select id="deviceWindow-select" name="token" required>
-                        <option disabled selected value="EMPTY">Выберите устройство</option>
-                        <option value="0-0">Мой домашний комп</option>
-                        <option value="1-1">Рабочая лошадка</option>
-                        <option value="2-2">A2 lite</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-        <button type="submit" class="dialog-button" id="deviceWindow-submit">Сохранить</button>
     </form>
 </div>
 <div id="deviceInfo" style="left: 100px; position: absolute;">
@@ -220,4 +172,7 @@
         clipboardWindow.show();
     }
 
+    function showUploadFilesClipboard() {
+        clipboardWindow.showUploadFilesView()
+    }
 </script>

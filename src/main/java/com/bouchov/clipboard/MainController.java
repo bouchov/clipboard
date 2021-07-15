@@ -3,13 +3,11 @@ package com.bouchov.clipboard;
 import com.bouchov.clipboard.entities.*;
 import com.bouchov.clipboard.protocol.AccountBean;
 import com.bouchov.clipboard.protocol.ContentBean;
-import com.bouchov.clipboard.protocol.DeviceBean;
+import com.bouchov.clipboard.protocol.LinkBean;
 import com.bouchov.clipboard.protocol.ResponseBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
@@ -20,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Alexandre Y. Bouchov
@@ -31,20 +30,17 @@ import java.util.*;
 @RequestMapping("/")
 public class MainController extends AbstractController {
     private final AccountRepository accountRepository;
-    private final DeviceRepository deviceRepository;
-    private final ContentRepository contentRepository;
+    private final ClipboardService service;
     private final ResourceLoader resourceLoader;
     private final HttpSession session;
 
     @Autowired
     public MainController(AccountRepository accountRepository,
-            DeviceRepository deviceRepository,
-            ContentRepository contentRepository,
+            ClipboardService service,
             ResourceLoader resourceLoader,
             HttpSession session) {
         this.accountRepository = accountRepository;
-        this.deviceRepository = deviceRepository;
-        this.contentRepository = contentRepository;
+        this.service = service;
         this.resourceLoader = resourceLoader;
         this.session = session;
     }
@@ -58,7 +54,7 @@ public class MainController extends AbstractController {
     public ResponseBean login(
             @RequestParam(name = "name") String name,
             @RequestParam(name = "password") String password,
-            @RequestParam(name = "token", required = false) String token) {
+            @RequestParam(name = "token", required = false) UUID token) {
         Long userId = (Long) session.getAttribute(SessionAttributes.USER_ID);
         Account user = accountRepository.findByName(name)
                 .orElseThrow(() -> new UserNotFoundException(name));
@@ -70,52 +66,29 @@ public class MainController extends AbstractController {
             throw new UserNotFoundException(name);
         }
         session.setAttribute(SessionAttributes.USER_ID, user.getId());
-        Device device = null;
-        if (token != null && !token.isBlank()) {
-            device = deviceRepository.findByToken(UUID.fromString(token)).orElseThrow();
-            session.setAttribute(SessionAttributes.DEVICE_ID, device.getId());
+        if (token == null) {
+            token = UUID.randomUUID();
         }
-        ResponseBean bean = new ResponseBean(user, device);
-        Page<Content> page = contentRepository.findAllByAccount(user, Pageable.unpaged());
-        if (page.hasContent()) {
-            bean.setContents(page.map(ContentBean::new).getContent());
-        }
+        UUID theToken = token;
+        session.setAttribute(SessionAttributes.TOKEN, theToken);
+        ResponseBean bean = new ResponseBean(user, theToken);
+        Optional<Clipboard> clipboard = service.getClipboard(user);
+        clipboard.ifPresent(value -> bean.setContents(getContentsBean(theToken, value)));
         return bean;
     }
 
-    @PostMapping("/device")
-    public DeviceBean device(@RequestBody DeviceBean deviceBean) {
-        checkAuthorization(session);
-        Device device;
-        String token = deviceBean.getToken();
-        if (token != null && !token.isBlank()) {
-            device = deviceRepository.findByToken(UUID.fromString(token))
-                    .orElseThrow(() -> new UserNotFoundException(token));
+    private List<ContentBean> getContentsBean(UUID token, Clipboard clipboard) {
+        List<Content> page = clipboard.getContents();
+        if (token == null) {
+            return page.stream()
+                    .map(ContentBean::new)
+                    .collect(Collectors.toList());
         } else {
-            String name = deviceBean.getName();
-            if (name == null || name.isBlank()) {
-                throw new IllegalArgumentException("name required");
-            }
-            Account account = getUser(session, accountRepository).orElseThrow();
-            if (deviceRepository.findByAccountAndName(account, name).isPresent()) {
-                throw new UserAlreadyExistsException(name);
-            }
-            DeviceType deviceType = deviceBean.getType();
-            if (deviceType == null) {
-                deviceType = DeviceType.OTHER;
-            }
-            device = deviceRepository.save(new Device(name, deviceType, UUID.randomUUID(), account));
+            return page.stream()
+                    .filter(c -> !Objects.equals(c.getSource(), token) || c.getType() == ContentType.CLIPBOARD)
+                    .map(ContentBean::new)
+                    .collect(Collectors.toList());
         }
-        session.setAttribute(SessionAttributes.DEVICE_ID, device.getId());
-        return new DeviceBean(device);
-    }
-
-    @GetMapping("/devices")
-    public List<DeviceBean> devices() {
-        checkAuthorization(session);
-        Page<Device> page = deviceRepository.findAllByAccount(getUser(session, accountRepository).orElseThrow(),
-                Pageable.unpaged());
-        return page.map(DeviceBean::new).getContent();
     }
 
     @PostMapping("/register")
@@ -141,20 +114,25 @@ public class MainController extends AbstractController {
         }
         Account user = accountRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
-        Device device = null;
-        Long deviceId = (Long) session.getAttribute(SessionAttributes.DEVICE_ID);
-        if (deviceId != null) {
-            device = deviceRepository.findById(deviceId).orElseThrow(() -> new UserNotFoundException(deviceId));
-        }
-        return new ResponseBean(user, device);
+        UUID token = (UUID) session.getAttribute(SessionAttributes.TOKEN);
+        ResponseBean bean = new ResponseBean(user, token);
+        Optional<Clipboard> clipboard = service.getClipboard(user);
+        clipboard.ifPresent(value -> bean.setContents(getContentsBean(token, value)));
+        return bean;
     }
 
     @GetMapping("/clipboard")
     public List<ContentBean> getClipboard() {
         checkAuthorization(session);
         Account account = getUser(session, accountRepository).orElseThrow();
-        Page<Content> page = contentRepository.findAllByAccount(account, Pageable.unpaged());
-        return page.map(ContentBean::new).getContent();
+        UUID token = (UUID) session.getAttribute(SessionAttributes.TOKEN);
+
+        Optional<Clipboard> clipboard = service.getClipboard(account);
+        if (clipboard.isPresent()) {
+            return getContentsBean(token, clipboard.get());
+        } else {
+            return Collections.emptyList();
+        }
     }
 
     @PostMapping("/clipboard")
@@ -162,54 +140,38 @@ public class MainController extends AbstractController {
             @RequestBody List<ContentBean> contents) {
         checkAuthorization(session);
         Account account = getUser(session, accountRepository).orElseThrow();
+        UUID token = (UUID) session.getAttribute(SessionAttributes.TOKEN);
         if (contents.isEmpty()) {
-            contentRepository.deleteAllByAccount(account);
+            service.deleteContents(account);
             return Collections.emptyList();
         } else {
-            ArrayList<ContentBean> beans = new ArrayList<>();
-            Long deviceId = (Long) session.getAttribute(SessionAttributes.DEVICE_ID);
-            Device device = deviceRepository.findById(deviceId).orElseThrow(() -> new UserNotFoundException(deviceId));
-            for (ContentBean content : contents) {
-                beans.add(new ContentBean(contentRepository.save(
-                        new Content(device,
-                                content.getType(),
-                                content.getData()))
-                ));
-            }
-            return beans;
+            service.setContents(contents.stream()
+                    .map(b -> new Content(account, b.getType(), token, b.getData()))
+                    .collect(Collectors.toList()));
+            Clipboard clipboard = service.getClipboard(account).orElseThrow();
+            return getContentsBean(token, clipboard);
         }
     }
 
-    @GetMapping("/share/{contentId}")
-    public ContentBean share(@PathVariable Long contentId) {
+    @GetMapping("/share")
+    public LinkBean share() {
         checkAuthorization(session);
-        Content sharedContent = contentRepository.findById(contentId)
-                .orElseThrow(() -> new UserNotFoundException(contentId));
-        if (sharedContent.getToken() == null) {
-            sharedContent.setToken(generateToken());
-            contentRepository.save(sharedContent);
-        }
-        return new ContentBean(sharedContent);
-    }
-
-    private String generateToken() {
-        String token;
-        do {
-            token = IdGenerator.generate();
-        } while (contentRepository.findByToken(token).isPresent());
-        return token;
+        Account account = getUser(session, accountRepository).orElseThrow();
+        String token = service.shareClipboard(account)
+                .orElseThrow(() -> new UserNotFoundException(account.getId()));
+        return new LinkBean(token);
     }
 
     @GetMapping("/shared/{token}")
     @ResponseBody
     public String shared(@PathVariable(name="token") String token)
             throws IOException {
-        Content sharedContent = contentRepository.findByToken(token).orElse(null);
+        Optional<Clipboard> clipboard = service.getClipboardByToken(token);
         String text;
-        if (sharedContent == null) {
+        if (clipboard.isEmpty()) {
             text = "Content expired";
-        } else if (sharedContent.getType() == ContentType.CLIPBOARD) {
-            text = sharedContent.getData();
+        } else if (clipboard.get().getContentType() == ContentType.CLIPBOARD) {
+            text = clipboard.get().getContent().getData();
         } else {
             text = "Content is not supported";
         }

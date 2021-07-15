@@ -42,8 +42,8 @@ class LoadingWindow extends WebForm {
 }
 
 class DeviceInfo extends WebForm {
-    KEY_USER = 'KEY_USER';
-    KEY_DEVICE = 'KEY_DEVICE';
+    KEY_USER = 'KEY_USER'
+    KEY_TOKEN = 'KEY_TOKEN'
 
     constructor() {
         super('deviceInfo');
@@ -56,48 +56,36 @@ class DeviceInfo extends WebForm {
         } else {
             this.account = JSON.parse(jsonUser)
         }
-        let jsonDevice = localStorage.getItem(this.KEY_DEVICE)
-        if (!jsonDevice) {
-            this.device = undefined
-        } else {
-            this.device = JSON.parse(jsonDevice);
+        this.token = localStorage.getItem(this.KEY_TOKEN)
+        if (!this.token) {
+            this.token = undefined
         }
         this.showDeviceInfo();
     }
 
     reset() {
         this.account = {name: 'Гость'}
-        this.device = undefined
+        this.token = undefined
     }
 
     showDeviceInfo() {
-        if (!this.device) {
+        if (!this.token) {
             this.nameElement.innerHTML = '<p>' + this.account.name + '</p>';
         } else {
-            this.nameElement.innerHTML = '<p>' + this.account.name + ': ' + this.device.name + '</p>';
+            this.nameElement.innerHTML = '<p>' + this.account.name + ': ' + this.token + '</p>';
         }
     }
 
-    saveAccount(account) {
+    saveAccount(account, token) {
         this.account = account;
         localStorage.setItem(this.KEY_USER, JSON.stringify(account));
-    }
-
-    saveDevice(device) {
-        this.device = device;
-        deviceWindow.setDevice(device);
-        if (device) {
-            localStorage.setItem(this.KEY_DEVICE, JSON.stringify(device));
-        }
+        this.token = token;
+        localStorage.setItem(this.KEY_TOKEN, token);
     }
 
     showApplicationForm() {
         this.showDeviceInfo();
-        if (!this.device) {
-            deviceWindow.show()
-        } else {
-            clipboardWindow.show()
-        }
+        clipboardWindow.show()
     }
 
     initApplication() {
@@ -160,8 +148,7 @@ class LoginWindow extends WebForm {
     onLoginSuccess(response) {
         let account = response.account
         this.saveLogin(account.name)
-        deviceInfo.saveAccount(account)
-        deviceInfo.saveDevice(response.device)
+        deviceInfo.saveAccount(account, response.token)
         clipboardWindow.saveContents(response.contents)
     }
 
@@ -217,118 +204,10 @@ class LoginWindow extends WebForm {
                 messageWindow.showMessage(this.responseText, function() {form.show()})
             }
         };
-        this.sendPost(xhttp, '/', 'name=' + login + '&password=' + password)
-    }
-}
-
-class DeviceControl extends WebControl {
-    constructor(name) {
-        super(name);
-    }
-
-    setDevice(device) {
-        if (device) {
-            this.control.value = device.token
+        if (deviceInfo.token) {
+            this.sendPost(xhttp, '/', 'name=' + login + '&password=' + password + '&token=' + deviceInfo.token)
         } else {
-            this.control.value = '0'
-        }
-    }
-
-    getDeviceToken() {
-        return this.control.value;
-    }
-
-    loadData() {
-        let form = this;
-        let xhttp = new XMLHttpRequest();
-
-        xhttp.onreadystatechange = function () {
-            if (this.readyState === 4) {
-                if (this.status === 200) {
-                    form.log.log('WEB: <<< ' + xhttp.responseText);
-                    let devices = JSON.parse(xhttp.responseText);
-                    form.loadDeviceListData(devices);
-                } else {
-                    form.reset();
-                    form.log.warn('error load categories: ', xhttp.responseText);
-                }
-            }
-        };
-        this.sendGet(xhttp, '/devices');
-    }
-
-    loadDeviceListData(devices) {
-        this.control.innerHTML = '<option disabled selected value="0">Выберите устройство</option>';
-        let form = this;
-        devices.forEach(function(device){
-            form.control.insertAdjacentHTML('beforeend',
-                '<option value="' + device.token + '">' + device.name + '</option>');
-        });
-    }
-}
-
-class DeviceWindow extends WebForm {
-    constructor() {
-        super('deviceWindow');
-        this.element = document.getElementById('deviceWindow')
-        this.name = document.getElementById('deviceWindow-name')
-        this.type = document.getElementById('deviceWindow-type')
-
-        this.devices = new DeviceControl('deviceWindow-select')
-        this.devices.addListener('change', doSelectDeviceWindow)
-        this.addSubmitListener(doSubmitDeviceWindow)
-    }
-
-    reset() {
-        this.devices.reset()
-    }
-
-    setDevice(device) {
-        this.devices.load()
-        this.devices.setDevice(device)
-    }
-
-    doSelect() {
-        let devToken = this.devices.getDeviceToken()
-        if (devToken && devToken !== '0') {
-            let form = this;
-            let xhttp = new XMLHttpRequest();
-
-            xhttp.onreadystatechange = function () {
-                if (this.status === 200) {
-                    form.log.log('WEB: <<< ' + xhttp.responseText);
-                    let device = JSON.parse(xhttp.responseText);
-                    deviceInfo.saveDevice(device)
-                    deviceInfo.showApplicationForm()
-                } else {
-                    form.reset();
-                    form.log.warn('error saving device: ', xhttp.responseText);
-                }
-            };
-            this.sendJson(xhttp, '/device', {token: devToken});
-        }
-    }
-
-    doSubmit() {
-        let devName = this.name.value
-        let devType = this.type.value
-        if (devName) {
-            let form = this;
-            let xhttp = new XMLHttpRequest();
-
-            xhttp.onreadystatechange = function () {
-                if (this.status === 200) {
-                    form.log.log('WEB: <<< ' + xhttp.responseText);
-                    let device = JSON.parse(xhttp.responseText);
-                    form.reset()
-                    deviceInfo.saveDevice(device)
-                    deviceInfo.showApplicationForm()
-                } else {
-                    form.reset();
-                    form.log.warn('error saving device: ', xhttp.responseText);
-                }
-            };
-            this.sendJson(xhttp, '/device', {name: devName, type: devType});
+            this.sendPost(xhttp, '/', 'name=' + login + '&password=' + password)
         }
     }
 }
@@ -344,19 +223,56 @@ class ClipboardWindow extends WebForm {
         this.downloadView = document.getElementById('clipboardWindow-downloadView')
         this.uploadView = document.getElementById('clipboardWindow-uploadView')
 
+        this.webSocket = undefined
+
         this.addSubmitListener(doSubmitClipboard)
 
         this.contents = []
+        this.anchor = undefined
+        this.link = {token: undefined}
         this.currentView = this.textVew
     }
 
-    setContent(content) {
-        this.contents.forEach(function(c) {
-            if (c.id === content.id) {
-                c.data = content.data
-                c.token = content.token
-            }
-        })
+    connect(token) {
+        let url = getWebsocketProtocol() + '://' + getUrl() + '/websocket';
+        this.webSocket = new WebSocket(url);
+        let form = this;
+        this.webSocket.onopen = function () {
+            form.webSocket.send(JSON.stringify({enter: {token: token}}));
+        }
+        this.webSocket.onmessage = clipboardWebsocketMessageHandler;
+        this.webSocket.onclose = function () {
+            form.log.log("connection closed by server");
+        }
+    }
+
+    close() {
+        if (this.webSocket && this.webSocket.readyState === WebSocket.OPEN) {
+            this.webSocket.onclose = null;
+            this.webSocket.close();
+            this.webSocket = null;
+            this.log.log("close connection");
+        }
+    }
+
+    onWebsocketJsonMessage(message) {
+        this.log.log('received message:', message)
+    }
+
+    onWebsocketArrayBuffer(message) {
+        this.log.log('received array buffer[' + message.byteLength + ']')
+    }
+
+    showUploadFilesView() {
+        if (this.currentView !== this.uploadView) {
+            this.hide()
+            this.currentView = this.uploadView
+            this.show()
+        }
+    }
+
+    setLink(link) {
+        this.link = link
     }
 
     saveContents(contents) {
@@ -422,9 +338,9 @@ class ClipboardWindow extends WebForm {
         if (this.currentView === this.textVew) {
             if (this.contents.length === 1) {
                 let form = this;
-                if (this.contents[0].token) {
+                if (this.link.token) {
                     form.hide()
-                    messageWindow.showMessage(this.generateShareLink(this.contents[0]),
+                    messageWindow.showMessage(this.generateShareLink(this.link),
                         function() {form.show()})
                 } else {
                     let form = this;
@@ -434,27 +350,27 @@ class ClipboardWindow extends WebForm {
                         form.hide()
                         if (this.status === 200) {
                             form.log.log('WEB: <<< ' + xhttp.responseText);
-                            let content = JSON.parse(xhttp.responseText);
-                            form.setContent(content)
-                            messageWindow.showMessage(form.generateShareLink(content),
+                            let link = JSON.parse(xhttp.responseText);
+                            form.setLink(link)
+                            messageWindow.showMessage(form.generateShareLink(link),
                                 function() {form.show()})
                         } else {
                             form.log.warn('error saving content: ', xhttp.responseText);
                             messageWindow.showMessage(this.responseText, function() {form.show()})
                         }
                     };
-                    this.sendGet(xhttp, '/share/' + this.contents[0].id);
+                    this.sendGet(xhttp, '/share');
                 }
             }
         }
     }
 
-    generateShareLink(content) {
-        if (!this.link) {
-            this.link = document.createElement('A')
+    generateShareLink(link) {
+        if (!this.anchor) {
+            this.anchor = document.createElement('A')
         }
-        this.link.href = '/shared/' + content.token
-        return this.link.href
+        this.anchor.href = '/shared/' + link.token
+        return this.anchor.href
     }
 }
 
@@ -463,20 +379,11 @@ var messageWindow = new MessageWindow()
 var loginWindow = new LoginWindow()
 var clipboardWindow = new ClipboardWindow()
 var deviceInfo = new DeviceInfo()
-var deviceWindow = new DeviceWindow()
 
 
 //callbacks
 function doHideMessageWindow(event) {
     messageWindow.dismiss()
-}
-
-function doSubmitDeviceWindow(event) {
-    deviceWindow.doSubmit()
-}
-
-function doSelectDeviceWindow(event) {
-    deviceWindow.doSelect()
 }
 
 function doSubmitLoginWindow(event) {
@@ -489,4 +396,14 @@ function doSubmitClipboard(event) {
 
 function doClickShareButton(event) {
     clipboardWindow.doShare()
+}
+
+function clipboardWebsocketMessageHandler(event) {
+    log.log('WEBSOCKET: <<< ', event.data);
+    if (typeof event.data == 'string') {
+        let msg = JSON.parse(event.data);
+        clipboardWindow.onWebsocketJsonMessage(msg)
+    } else if (event.data instanceof "arraybuffer") {
+        clipboardWindow.onWebsocketArrayBuffer(event.data)
+    }
 }

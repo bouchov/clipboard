@@ -1,9 +1,9 @@
 package com.bouchov.clipboard.protocol;
 
 import com.bouchov.clipboard.entities.Account;
-import com.bouchov.clipboard.entities.Device;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Alexandre Y. Bouchov
@@ -13,7 +13,7 @@ import java.util.List;
  */
 public class ResponseBean {
     private AccountBean account;
-    private DeviceBean device;
+    private UUID token;
     private List<ContentBean> contents;
 
     public ResponseBean() {
@@ -23,11 +23,9 @@ public class ResponseBean {
         this.account = new AccountBean(account);
     }
 
-    public ResponseBean(Account account, Device device) {
+    public ResponseBean(Account account, UUID token) {
         this(account);
-        if (device != null) {
-            this.device = new DeviceBean(device);
-        }
+        this.token = token;
     }
 
     public AccountBean getAccount() {
@@ -38,12 +36,12 @@ public class ResponseBean {
         this.account = account;
     }
 
-    public DeviceBean getDevice() {
-        return device;
+    public UUID getToken() {
+        return token;
     }
 
-    public void setDevice(DeviceBean device) {
-        this.device = device;
+    public void setToken(UUID token) {
+        this.token = token;
     }
 
     public List<ContentBean> getContents() {
@@ -58,7 +56,7 @@ public class ResponseBean {
     public String toString() {
         return "[ResponseBean" +
                 " account=" + account +
-                ", device=" + device +
+                ", token=" + token +
                 ", contents=" + contents +
                 ']';
     }

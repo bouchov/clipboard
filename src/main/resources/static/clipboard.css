@@ -7,11 +7,19 @@ html, body {
     font-size: large;
 }
 
-input[type=text], input[type=password], input[type=number], select, textarea {
+input[type=text], input[type=password], input[type=number], input[type=file], select, textarea {
     width: 100%;
     box-sizing: border-box;
     padding: 4px;
     border-radius: 12px;
+}
+
+.file-drop-area {
+    border: 2px dashed #f1f1f1;
+}
+
+.file-drop-area:hover {
+    border-color: aqua;
 }
 
 label {

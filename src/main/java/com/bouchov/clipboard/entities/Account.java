@@ -2,8 +2,9 @@ package com.bouchov.clipboard.entities;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 
-import javax.persistence.*;
-import java.util.List;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Transient;
 
 /**
  * Alexandre Y. Bouchov
@@ -20,9 +21,6 @@ public class Account extends BasicEntity {
     private Password password;
     @Column
     private String jsonPassword;
-
-    @OneToMany(mappedBy = "account", fetch = FetchType.LAZY)
-    private List<Device> devices;
 
     public Account() {
     }
@@ -46,13 +44,5 @@ public class Account extends BasicEntity {
             password = Password.toPassword(jsonPassword);
         }
         return password;
-    }
-
-    public List<Device> getDevices() {
-        return devices;
-    }
-
-    public void setDevices(List<Device> devices) {
-        this.devices = devices;
     }
 }

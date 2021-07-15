@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Clipboard</title>
-    <link rel="stylesheet" type="text/css" href="/clipboard.css">
+    <link rel="stylesheet" type="text/css" href="clipboard.css">
 </head>
 <body onload="initApp()">
 <div id="loadingWindow" class="loading fade-in">
@@ -14,56 +14,40 @@
         <p>Гостъ: new device 1</p>
     </div>
 </div>
-<div id="deviceWindow" class="modal">
+<div id="clipboardWindow" class="modal">
     <div class="menu-bar">
-        <span class="menu-button" onclick="doShowLoginWindow()" title="Close">&times;</span>
+        <span class="menu-button" onclick="showContentClipboard()" title="View content">&#9215;</span>
+        <span class="menu-button" onclick="showUploadFilesClipboard()" title="Send files">&#128462;</span>
+        <span class="menu-button" onclick="showTextClipboard()" title="Send text">&#84;</span>
+        <span class="menu-button" onclick="doClearClipboard()" title="Clear">&#9003;</span>
+        <span class="menu-button" onclick="doEditDevice()" title="Edit device">&#128187;</span>
+        <span class="menu-button" onclick="showLoginWindow()" title="Close">&cross;</span>
     </div>
-    <form class="modal-content animate" onsubmit="doSubmitDeviceWindow()">
-        <h1>Новое устройство</h1>
-        <div class="table-row">
-            <div class="table-cell" style="width: 20%">
-                <div class="table-cell-content, right_label">
-                    <label for="deviceWindow-name">Название:</label>
+    <form class="modal-content animate">
+        <h1>Clipboard</h1>
+        <div id="clipboardWindow-uploadView">
+            <div class="table-row">
+                <div class="table-cell" style="width: 100%">
+                    <div class="table-cell-content">
+                        <input type="file" class="file-drop-area" multiple id="clipboardWindow-uploadFile">
+                    </div>
                 </div>
             </div>
-            <div class="table-cell" style="width: 60%">
-                <div class="table-cell-content">
-                    <input type="text" id="deviceWindow-name">
-                </div>
-            </div>
-            <div class="table-cell" style="width: 20%">
-                <div class="table-cell-content">
-                    <select id="deviceWindow-type" name="type" required>
-                        <option value="OTHER" selected>PC</option>
-                        <option value="ANDROID">Android</option>
-                    </select>
+            <div class="table-row">
+                <div class="table-cell" style="width: 100%">
+                    <div class="table-cell-content">
+                        <button type="submit" class="dialog-button">Поделиться</button>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="table-row">
-            <div class="table-cell" style="width: 20%">
-                <div class="table-cell-content, right_label">
-                    <label for="deviceWindow-select">Выбрать:</label>
-                </div>
-            </div>
-            <div class="table-cell" style="width: 80%">
-                <div class="table-cell-content">
-                    <select id="deviceWindow-select" name="token" required>
-                        <option disabled selected value="EMPTY">Выберите устройство</option>
-                        <option value="0-0">Мой домашний комп</option>
-                        <option value="1-1">Рабочая лошадка</option>
-                        <option value="2-2">A2 lite</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-        <button type="submit" class="dialog-button" id="deviceWindow-submit">Сохранить</button>
+        <div class="table-footer"></div>
     </form>
 </div>
 </body>
 </html>
-<script type="text/javascript" src="/common.js"></script>
-<script type="text/javascript" src="/clipboard.js"></script>
+<script type="text/javascript" src="common.js"></script>
+<script type="text/javascript" src="clipboard.js"></script>
 <script>
     var clipboardWindow = {element:null}
     var deviceWindow = {element:null}
@@ -71,12 +55,12 @@
     function initApp() {
         clipboardWindow.element = document.getElementById('clipboardWindow');
         deviceWindow.element = document.getElementById('deviceWindow');
-        findForm(deviceWindow.element).addEventListener('submit', function(event) {
-            event.preventDefault()
-            doSubmitDevice()
-        })
+        // findForm(deviceWindow.element).addEventListener('submit', function(event) {
+        //     event.preventDefault()
+        //     doSubmitDevice()
+        // })
 
-        let wnd = deviceWindow;
+        let wnd = clipboardWindow;
 
         showModalWindow(wnd.element);
     }
@@ -101,5 +85,9 @@
     function doSubmitDeviceWindow(event) {
         // event.preventDefault()
         deviceWindow.doSubmit();
+    }
+
+    function doOpenFileDialog() {
+        document.getElementById('clipboardWindow-uploadFile').click()
     }
 </script>
