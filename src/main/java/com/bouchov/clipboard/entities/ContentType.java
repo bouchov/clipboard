@@ -8,7 +8,5 @@ package com.bouchov.clipboard.entities;
  */
 public enum ContentType {
     CLIPBOARD,
-    TEXT,
-    IMAGE,
-    BINARY
+    FILE
 }

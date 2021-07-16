@@ -79,16 +79,9 @@ public class MainController extends AbstractController {
 
     private List<ContentBean> getContentsBean(UUID token, Clipboard clipboard) {
         List<Content> page = clipboard.getContents();
-        if (token == null) {
-            return page.stream()
-                    .map(ContentBean::new)
-                    .collect(Collectors.toList());
-        } else {
-            return page.stream()
-                    .filter(c -> !Objects.equals(c.getSource(), token) || c.getType() == ContentType.CLIPBOARD)
-                    .map(ContentBean::new)
-                    .collect(Collectors.toList());
-        }
+        return page.stream()
+                .map(ContentBean::new)
+                .collect(Collectors.toList());
     }
 
     @PostMapping("/register")

@@ -93,19 +93,17 @@ class DeviceInfo extends WebForm {
             let form = this;
             let xhttp = new XMLHttpRequest();
             xhttp.onreadystatechange = function () {
-                if (this.readyState === 4) {
-                    if (this.status === 200) {
-                        form.log.log('WEB: <<< ' + xhttp.responseText);
-                        let response = JSON.parse(this.responseText);
-                        form.log.log('user is logged in', response.account);
-                        loginWindow.onLoginSuccess(response);
-                        form.showApplicationForm();
-                    } else {
-                        form.log.warn('Session expired');
-                        form.reset()
-                        form.showDeviceInfo()
-                        loginWindow.show();
-                    }
+                if (this.status === 200) {
+                    form.log.log('WEB: <<< ' + xhttp.responseText);
+                    let response = JSON.parse(this.responseText);
+                    form.log.log('user is logged in', response.account);
+                    loginWindow.onLoginSuccess(response);
+                    form.showApplicationForm();
+                } else {
+                    form.log.warn('Session expired');
+                    form.reset()
+                    form.showDeviceInfo()
+                    loginWindow.show();
                 }
             };
             this.sendGet(xhttp, '/ping');
@@ -222,7 +220,10 @@ class ClipboardWindow extends WebForm {
         this.shareButton = document.getElementById('clipboardWindow-share')
         this.shareButton.addEventListener('click', doClickShareButton)
         this.downloadView = document.getElementById('clipboardWindow-downloadView')
+        this.downloadFileList = document.getElementById("clipboardWindow-downloadFileList")
         this.uploadView = document.getElementById('clipboardWindow-uploadView')
+        this.inputFile = document.getElementById("clipboardWindow-uploadFile")
+        this.uploadFileList = document.getElementById("clipboardWindow-uploadFileList")
 
         this.webSocket = undefined
 
@@ -232,18 +233,23 @@ class ClipboardWindow extends WebForm {
         this.anchor = undefined
         this.link = {token: undefined}
         this.currentView = this.textVew
+        this.downloadFileList.innerHTML = ''
+        this.uploadFileList.innerHTML = ''
     }
 
     connect(device) {
-        let url = getWebsocketProtocol() + '://' + getUrl() + '/websocket';
-        this.webSocket = new WebSocket(url);
-        let form = this;
-        this.webSocket.onopen = function () {
-            form.webSocket.send(JSON.stringify({enter: {device: device}}));
-        }
-        this.webSocket.onmessage = clipboardWebsocketMessageHandler;
-        this.webSocket.onclose = function () {
-            form.log.log("connection closed by server");
+        if (!this.webSocket || this.webSocket.readyState !== WebSocket.OPEN) {
+            let url = getWebsocketProtocol() + '://' + getUrl() + '/websocket';
+            this.log.log('connecting:', url)
+            this.webSocket = new WebSocket(url);
+            let form = this;
+            this.webSocket.onopen = function () {
+                form.webSocket.send(JSON.stringify({enter: {device: device}}));
+            }
+            this.webSocket.onmessage = clipboardWebsocketMessageHandler;
+            this.webSocket.onclose = function () {
+                form.log.log("connection closed by server");
+            }
         }
     }
 
@@ -251,9 +257,9 @@ class ClipboardWindow extends WebForm {
         if (this.webSocket && this.webSocket.readyState === WebSocket.OPEN) {
             this.webSocket.onclose = null;
             this.webSocket.close();
-            this.webSocket = null;
             this.log.log("close connection");
         }
+        this.webSocket = undefined;
     }
 
     onWebsocketJsonMessage(message) {
@@ -268,6 +274,16 @@ class ClipboardWindow extends WebForm {
         if (this.currentView !== this.uploadView) {
             this.hide()
             this.currentView = this.uploadView
+            this.link = {token: undefined}
+            this.show()
+        }
+    }
+
+    showTextView() {
+        if (this.currentView !== this.textVew) {
+            this.hide()
+            this.currentView = this.textVew
+            this.link = {token: undefined}
             this.show()
         }
     }
@@ -287,34 +303,123 @@ class ClipboardWindow extends WebForm {
             this.textarea.value = '';
         } else {
             let form = this
-            this.contents.forEach(function(content) {
-                if (content.type === 'CLIPBOARD') {
-                    form.currentView = form.textVew;
-                    form.textarea.value = content.data;
+            let record = this.contents[0]
+            if (record.type === 'CLIPBOARD') {
+                form.currentView = form.textVew;
+                form.textarea.value = record.data;
+                this.close()
+            } else if (record.type === 'FILE') {
+                if (record.source === deviceInfo.device) {
+                    form.currentView = form.uploadView;
+                    form.uploadFileList.innerHTML = ''
+                    this.contents.forEach(function(content, idx) {
+                        form.writeUploadRecord(form.uploadFileList, idx, content)
+                    })
+                    this.connect(deviceInfo.device)
+                } else {
+                    form.currentView = form.downloadView;
+                    form.downloadFileList.innerHTML = ''
+                    this.contents.forEach(function(content, idx) {
+                        form.writeDownloadRecord(form.downloadFileList, idx, content)
+                    })
+                    this.close()
                 }
-            })
+            }
         }
+    }
+
+    writeUploadRecord(element, idx, record) {
+        element.insertAdjacentHTML('beforeend',
+            '<div class="table-row">' +
+            '  <div class="table-cell">' +
+            '    <div class="table-cell-content">' +
+            '      <p>' + record.data.name + ' (' + record.data.size + ') ' + record.data.type + '</p>' +
+            '    </div>' +
+            '  </div>' +
+            '  <div class="table-cell" style="width: 10%">' +
+            '    <div class="table-cell-content">' +
+            '      <progress max="' + record.data.size + '" value="0" id="clipboardWindow-uploadFileProgress' + idx + '">' +
+            'загружено <span id="clipboardWindow-uploadFilePercent' + idx + '">0</span>%' +
+            '      </progress>' +
+            '    </div>' +
+            '  </div>' +
+            '</div>'
+        )
+    }
+
+    writeDownloadRecord(element, idx, record) {
+        element.insertAdjacentHTML('beforeend',
+            '<div class="table-row">' +
+            '  <div class="table-cell" style="width: 2em">' +
+            '    <div class="table-cell-content">' +
+            '      <input type="checkbox" name="files" value="'+ idx + '" id="clipboardWindow-download' + idx + '">' +
+            '    </div>' +
+            '  </div>' +
+            '  <div class="table-cell">' +
+            '    <div class="table-cell-content">' +
+            '      <label for="clipboardWindow-download' + idx + '">' + record.data.name + ' (' + record.data.size + ') ' + record.data.type + '</label>' +
+            '    </div>' +
+            '  </div>' +
+            '  <div class="table-cell" style="width: 10%">' +
+            '    <div class="table-cell-content">' +
+            '      <progress max="' + record.data.size + '" value="0" id="clipboardWindow-downloadFileProgress' + idx + '">' +
+            'скачено <span id="clipboardWindow-downloadFilePercent' + idx + '">0</span>%' +
+            '      </progress>' +
+            '    </div>' +
+            '</div>'
+        )
     }
 
     beforeShow() {
-        this.textVew.style.display = 'none';
-        this.downloadView.style.display = 'none';
-        this.uploadView.style.display = 'none';
+        this.textVew.style.display = 'none'
+        this.downloadView.style.display = 'none'
+        this.uploadView.style.display = 'none'
         if (this.currentView === this.textVew) {
-            this.shareButton.disabled = this.contents.length !== 1;
+            this.shareButton.disabled = this.contents.length !== 1
             this.textVew.style.display = 'block';
+            this.log.log('show text view')
         }
         if (this.currentView === this.downloadView) {
-            this.downloadView.style.display = 'block';
+            this.downloadView.style.display = 'block'
+            this.log.log('show download view')
         }
         if (this.currentView === this.uploadView) {
-            this.uploadView.style.display = 'block';
+            this.uploadView.style.display = 'block'
+            this.log.log('show upload view')
         }
-        return super.beforeShow();
+        return super.beforeShow()
     }
 
     doSubmit() {
+        if (this.currentView === this.downloadView) {
+            this.doSubmitDownload()
+        } else {
+            this.doSubmitSend()
+        }
+    }
+
+    doSubmitSend() {
+        let records = []
         if (this.currentView === this.textVew) {
+            let data = this.textarea.value
+            records = [{type: 'CLIPBOARD', data: data}]
+        } else if (this.currentView === this.uploadView) {
+            if (this.inputFile.files.length > 0) {
+                for (let i=0; i < this.inputFile.files.length; i++) {
+                    let file = this.inputFile.files[i]
+                    records.push({
+                        type: 'FILE',
+                        data: {
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            lastModified: file.lastModified
+                        }
+                    })
+                }
+            }
+        }
+        if (records.length !== 0) {
             let form = this;
             let xhttp = new XMLHttpRequest();
 
@@ -330,9 +435,15 @@ class ClipboardWindow extends WebForm {
                     messageWindow.showMessage(this.responseText, function() {form.show()})
                 }
             };
-            let data = this.textarea.value
-            this.sendJson(xhttp, '/clipboard', [{data: data, type: 'CLIPBOARD'}]);
+            this.sendJson(xhttp, '/clipboard', records);
+        } else {
+            log.warn("cannot send empty records")
         }
+    }
+
+    doSubmitDownload() {
+        this.connect(deviceInfo.device)
+        //todo make requests to download
     }
 
     doShare() {

@@ -22,7 +22,7 @@
 </div>
 <div id="loginWindow" class="modal">
     <div class="menu-bar">
-        <span class="menu-button" onclick="doShowClipboardWindow()" title="Close">&cross;</span>
+        <span class="menu-button" onclick="showClipboardWindow()" title="Close">&cross;</span>
     </div>
     <form class="modal-content animate">
         <h1>Вход</h1>
@@ -60,7 +60,6 @@
         <span class="menu-button" onclick="showUploadFilesClipboard()" title="Send files">&#128462;</span>
         <span class="menu-button" onclick="showTextClipboard()" title="Send text">&#84;</span>
         <span class="menu-button" onclick="doClearClipboard()" title="Clear">&#9003;</span>
-        <span class="menu-button" onclick="doEditDevice()" title="Edit device">&#128187;</span>
         <span class="menu-button" onclick="showLoginWindow()" title="Close">&cross;</span>
     </div>
     <form class="modal-content animate">
@@ -89,27 +88,29 @@
             </div>
         </div>
         <div id="clipboardWindow-downloadView">
-            <div class="table-row">
-                <div class="table-cell" style="width: 2em">
-                    <div class="table-cell-content">
-                        <input type="checkbox" name="files" value="1" id="clipboardWindow-file1">
+            <div id="clipboardWindow-downloadFileList">
+                <div class="table-row">
+                    <div class="table-cell" style="width: 2em">
+                        <div class="table-cell-content">
+                            <input type="checkbox" name="files" value="1" id="clipboardWindow-file1">
+                        </div>
+                    </div>
+                    <div class="table-cell">
+                        <div class="table-cell-content">
+                            <label for="clipboardWindow-file1">файл №1</label>
+                        </div>
                     </div>
                 </div>
-                <div class="table-cell">
-                    <div class="table-cell-content">
-                        <label for="clipboardWindow-file1">файл №1</label>
+                <div class="table-row">
+                    <div class="table-cell" style="width: 2em">
+                        <div class="table-cell-content">
+                            <input type="checkbox" name="files" value="2" id="clipboardWindow-file2">
+                        </div>
                     </div>
-                </div>
-            </div>
-            <div class="table-row">
-                <div class="table-cell" style="width: 2em">
-                    <div class="table-cell-content">
-                        <input type="checkbox" name="files" value="2" id="clipboardWindow-file2">
-                    </div>
-                </div>
-                <div class="table-cell">
-                    <div class="table-cell-content">
-                        <label for="clipboardWindow-file2">файл №2</label>
+                    <div class="table-cell">
+                        <div class="table-cell-content">
+                            <label for="clipboardWindow-file2">файл №2</label>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -125,14 +126,44 @@
             <div class="table-row">
                 <div class="table-cell" style="width: 100%">
                     <div class="table-cell-content">
-                        <input type="file" multiple id="clipboardWindow-uploadFile">
+                        <input type="file" class="file-drop-area" multiple id="clipboardWindow-uploadFile">
                     </div>
                 </div>
             </div>
             <div class="table-row">
                 <div class="table-cell" style="width: 100%">
                     <div class="table-cell-content">
-                        <button type="submit" class="dialog-button">Поделиться</button>
+                        <button type="submit" class="dialog-button">Сохранить</button>
+                    </div>
+                </div>
+            </div>
+            <div id="clipboardWindow-uploadFileList">
+                <div class="table-row">
+                    <div class="table-cell">
+                        <div class="table-cell-content">
+                            <p>файл №1</p>
+                        </div>
+                    </div>
+                    <div class="table-cell" style="width: 10%">
+                        <div class="table-cell-content">
+                            <progress max="100" value="40" id="clipboardWindow-uploadFileProgress1">
+                                загружено <span id="clipboardWindow-uploadFilePercent1">0</span>%
+                            </progress>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-row">
+                    <div class="table-cell">
+                        <div class="table-cell-content">
+                            <p>файл №2</p>
+                        </div>
+                    </div>
+                    <div class="table-cell" style="width: 10%">
+                        <div class="table-cell-content">
+                            <progress max="100" value="30" id="clipboardWindow-uploadFileProgress2">
+                                загружено <span id="clipboardWindow-uploadFilePercent2">0</span>%
+                            </progress>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -164,15 +195,23 @@
         deviceInfo.initApplication();
     }
 
-    function doShowLoginWindow() {
+    function showLoginWindow() {
         loginWindow.show();
     }
 
-    function doShowClipboardWindow() {
+    function showClipboardWindow() {
         clipboardWindow.show();
+    }
+
+    function showTextClipboard() {
+        clipboardWindow.showTextView()
     }
 
     function showUploadFilesClipboard() {
         clipboardWindow.showUploadFilesView()
+    }
+
+    function showContentClipboard() {
+        deviceInfo.initApplication();
     }
 </script>

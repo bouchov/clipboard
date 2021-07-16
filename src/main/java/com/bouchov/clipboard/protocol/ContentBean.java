@@ -2,6 +2,10 @@ package com.bouchov.clipboard.protocol;
 
 import com.bouchov.clipboard.entities.Content;
 import com.bouchov.clipboard.entities.ContentType;
+import com.fasterxml.jackson.annotation.JsonRawValue;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
+import java.util.UUID;
 
 /**
  * Alexandre Y. Bouchov
@@ -11,7 +15,12 @@ import com.bouchov.clipboard.entities.ContentType;
  */
 public class ContentBean {
     private ContentType type;
+
+    @JsonDeserialize(using = RawJsonDeserializer.class)
+    @JsonRawValue
     private String data;
+
+    private UUID source;
 
     public ContentBean() {
     }
@@ -19,6 +28,7 @@ public class ContentBean {
     public ContentBean(Content content) {
         this.type = content.getType();
         this.data = content.getData();
+        this.source = content.getSource();
     }
 
     public String getData() {
@@ -37,11 +47,20 @@ public class ContentBean {
         this.type = type;
     }
 
+    public UUID getSource() {
+        return source;
+    }
+
+    public void setSource(UUID source) {
+        this.source = source;
+    }
+
     @Override
     public String toString() {
         return "[ContentBean" +
                 " type=" + type +
                 ", data=" + (data == null ? null : '\'' + data + '\'') +
+                ", source=" + source +
                 ']';
     }
 }

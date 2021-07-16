@@ -15,7 +15,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Alexandre Y. Bouchov
@@ -107,18 +106,12 @@ public class ClipboardServiceImpl
         }
         Content first = contents.get(0);
         Long accountId = first.getAccountId();
-        AtomicReference<ContentType> type = new AtomicReference<>(first.getType());
         if (contents.size() > 1) {
             if (contents.stream().anyMatch(c -> c.getType() == ContentType.CLIPBOARD)) {
                 throw new IllegalArgumentException("only one element of type clipboard is allowed");
             }
-            contents.forEach(c -> {
-                if (type.get() != c.getType()) {
-                    type.set(ContentType.BINARY);
-                }
-            });
         }
-        this.contents.put(accountId, new Container(accountId, new Clipboard(accountId, type.get(), contents)));
+        this.contents.put(accountId, new Container(accountId, new Clipboard(accountId, first.getType(), contents)));
     }
 
     @Override

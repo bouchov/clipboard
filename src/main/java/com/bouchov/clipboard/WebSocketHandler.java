@@ -12,6 +12,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -22,7 +23,7 @@ import java.util.UUID;
  */
 @Component
 public class WebSocketHandler extends TextWebSocketHandler {
-    private final Logger logger = LoggerFactory.getLogger(WebSocketHandler.class);
+    private final Logger log = LoggerFactory.getLogger(WebSocketHandler.class);
 
     @Autowired
     private ClipboardService service;
@@ -41,11 +42,14 @@ public class WebSocketHandler extends TextWebSocketHandler {
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        super.handleTextMessage(session, message);
         RequestBean request = new ObjectMapper().readValue(message.getPayload(), RequestBean.class);
-        logger.debug("received message: {}", request);
+        log.debug("received message: {}", request);
         if (request.getEnter() != null) {
             UUID device = request.getEnter().getDevice();
+            UUID deviceFromSession = (UUID) session.getAttributes().get(SessionAttributes.DEVICE);
+            if (!Objects.equals(device, deviceFromSession)) {
+                log.debug("different devices: {} and {}", device, deviceFromSession);
+            }
             service.connect(device, session);
         }
     }
