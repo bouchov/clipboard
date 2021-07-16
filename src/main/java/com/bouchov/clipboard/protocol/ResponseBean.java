@@ -13,7 +13,7 @@ import java.util.UUID;
  */
 public class ResponseBean {
     private AccountBean account;
-    private UUID token;
+    private UUID device;
     private List<ContentBean> contents;
 
     public ResponseBean() {
@@ -23,9 +23,9 @@ public class ResponseBean {
         this.account = new AccountBean(account);
     }
 
-    public ResponseBean(Account account, UUID token) {
+    public ResponseBean(Account account, UUID device) {
         this(account);
-        this.token = token;
+        this.device = device;
     }
 
     public AccountBean getAccount() {
@@ -36,12 +36,12 @@ public class ResponseBean {
         this.account = account;
     }
 
-    public UUID getToken() {
-        return token;
+    public UUID getDevice() {
+        return device;
     }
 
-    public void setToken(UUID token) {
-        this.token = token;
+    public void setDevice(UUID device) {
+        this.device = device;
     }
 
     public List<ContentBean> getContents() {
@@ -56,7 +56,7 @@ public class ResponseBean {
     public String toString() {
         return "[ResponseBean" +
                 " account=" + account +
-                ", token=" + token +
+                ", device=" + device +
                 ", contents=" + contents +
                 ']';
     }

@@ -8,5 +8,5 @@ package com.bouchov.clipboard;
  */
 public interface SessionAttributes {
     String USER_ID = "USER_ID";
-    String TOKEN = "TOKEN";
+    String DEVICE = "DEVICE";
 }

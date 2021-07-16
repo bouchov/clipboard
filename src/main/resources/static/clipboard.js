@@ -43,7 +43,7 @@ class LoadingWindow extends WebForm {
 
 class DeviceInfo extends WebForm {
     KEY_USER = 'KEY_USER'
-    KEY_TOKEN = 'KEY_TOKEN'
+    KEY_DEVICE = 'KEY_DEVICE'
 
     constructor() {
         super('deviceInfo');
@@ -56,31 +56,31 @@ class DeviceInfo extends WebForm {
         } else {
             this.account = JSON.parse(jsonUser)
         }
-        this.token = localStorage.getItem(this.KEY_TOKEN)
-        if (!this.token) {
-            this.token = undefined
+        this.device = localStorage.getItem(this.KEY_DEVICE)
+        if (!this.device) {
+            this.device = undefined
         }
         this.showDeviceInfo();
     }
 
     reset() {
         this.account = {name: 'Гость'}
-        this.token = undefined
+        this.device = undefined
     }
 
     showDeviceInfo() {
-        if (!this.token) {
+        if (!this.device) {
             this.nameElement.innerHTML = '<p>' + this.account.name + '</p>';
         } else {
-            this.nameElement.innerHTML = '<p>' + this.account.name + ': ' + this.token + '</p>';
+            this.nameElement.innerHTML = '<p>' + this.account.name + ': ' + this.device + '</p>';
         }
     }
 
-    saveAccount(account, token) {
+    saveAccount(account, device) {
         this.account = account;
         localStorage.setItem(this.KEY_USER, JSON.stringify(account));
-        this.token = token;
-        localStorage.setItem(this.KEY_TOKEN, token);
+        this.device = device;
+        localStorage.setItem(this.KEY_DEVICE, device);
     }
 
     showApplicationForm() {
@@ -148,7 +148,7 @@ class LoginWindow extends WebForm {
     onLoginSuccess(response) {
         let account = response.account
         this.saveLogin(account.name)
-        deviceInfo.saveAccount(account, response.token)
+        deviceInfo.saveAccount(account, response.device)
         clipboardWindow.saveContents(response.contents)
     }
 
@@ -204,8 +204,9 @@ class LoginWindow extends WebForm {
                 messageWindow.showMessage(this.responseText, function() {form.show()})
             }
         };
-        if (deviceInfo.token) {
-            this.sendPost(xhttp, '/', 'name=' + login + '&password=' + password + '&token=' + deviceInfo.token)
+        if (deviceInfo.device) {
+            this.sendPost(xhttp, '/', 'name=' + login + '&password=' + password +
+                '&device=' + deviceInfo.device)
         } else {
             this.sendPost(xhttp, '/', 'name=' + login + '&password=' + password)
         }
@@ -233,12 +234,12 @@ class ClipboardWindow extends WebForm {
         this.currentView = this.textVew
     }
 
-    connect(token) {
+    connect(device) {
         let url = getWebsocketProtocol() + '://' + getUrl() + '/websocket';
         this.webSocket = new WebSocket(url);
         let form = this;
         this.webSocket.onopen = function () {
-            form.webSocket.send(JSON.stringify({enter: {token: token}}));
+            form.webSocket.send(JSON.stringify({enter: {device: device}}));
         }
         this.webSocket.onmessage = clipboardWebsocketMessageHandler;
         this.webSocket.onclose = function () {
@@ -370,7 +371,7 @@ class ClipboardWindow extends WebForm {
             this.anchor = document.createElement('A')
         }
         this.anchor.href = '/shared/' + link.token
-        return this.anchor.href
+        return '<A href="' + this.anchor.href + '">Ссылка</A>'
     }
 }
 

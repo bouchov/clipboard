@@ -9,23 +9,23 @@ import java.util.UUID;
  * Copyright 2014 ConnectiveGames LLC. All rights reserved.
  */
 public class EnterBean {
-    private UUID token;
+    private UUID device;
 
     public EnterBean() {
     }
 
-    public UUID getToken() {
-        return token;
+    public UUID getDevice() {
+        return device;
     }
 
-    public void setToken(UUID token) {
-        this.token = token;
+    public void setDevice(UUID device) {
+        this.device = device;
     }
 
     @Override
     public String toString() {
         return "[EnterBean" +
-                " token=" + token +
+                " device=" + device +
                 ']';
     }
 }

@@ -18,7 +18,7 @@ import java.util.UUID;
 public interface ClipboardService {
     void disconnect(WebSocketSession session);
 
-    void connect(UUID token, WebSocketSession session);
+    void connect(UUID device, WebSocketSession session);
 
     Optional<Clipboard> getClipboard(Account account);
 

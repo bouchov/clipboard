@@ -70,7 +70,7 @@ public class MainController extends AbstractController {
             token = UUID.randomUUID();
         }
         UUID theToken = token;
-        session.setAttribute(SessionAttributes.TOKEN, theToken);
+        session.setAttribute(SessionAttributes.DEVICE, theToken);
         ResponseBean bean = new ResponseBean(user, theToken);
         Optional<Clipboard> clipboard = service.getClipboard(user);
         clipboard.ifPresent(value -> bean.setContents(getContentsBean(theToken, value)));
@@ -114,7 +114,7 @@ public class MainController extends AbstractController {
         }
         Account user = accountRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
-        UUID token = (UUID) session.getAttribute(SessionAttributes.TOKEN);
+        UUID token = (UUID) session.getAttribute(SessionAttributes.DEVICE);
         ResponseBean bean = new ResponseBean(user, token);
         Optional<Clipboard> clipboard = service.getClipboard(user);
         clipboard.ifPresent(value -> bean.setContents(getContentsBean(token, value)));
@@ -125,7 +125,7 @@ public class MainController extends AbstractController {
     public List<ContentBean> getClipboard() {
         checkAuthorization(session);
         Account account = getUser(session, accountRepository).orElseThrow();
-        UUID token = (UUID) session.getAttribute(SessionAttributes.TOKEN);
+        UUID token = (UUID) session.getAttribute(SessionAttributes.DEVICE);
 
         Optional<Clipboard> clipboard = service.getClipboard(account);
         if (clipboard.isPresent()) {
@@ -140,7 +140,7 @@ public class MainController extends AbstractController {
             @RequestBody List<ContentBean> contents) {
         checkAuthorization(session);
         Account account = getUser(session, accountRepository).orElseThrow();
-        UUID token = (UUID) session.getAttribute(SessionAttributes.TOKEN);
+        UUID token = (UUID) session.getAttribute(SessionAttributes.DEVICE);
         if (contents.isEmpty()) {
             service.deleteContents(account);
             return Collections.emptyList();

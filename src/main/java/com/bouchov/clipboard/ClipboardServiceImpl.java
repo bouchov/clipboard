@@ -28,7 +28,6 @@ public class ClipboardServiceImpl
         implements ClipboardService,
         DisposableBean,
         InitializingBean {
-    private static final Object PRESENT = new Object();
     private final Logger log = LoggerFactory.getLogger(ClipboardService.class);
 
     private final Map<String, Container> tokens;
@@ -50,15 +49,15 @@ public class ClipboardServiceImpl
     @Override
     public void disconnect(WebSocketSession session) {
         Long userId = (Long) session.getAttributes().get(SessionAttributes.USER_ID);
-        UUID token = (UUID) session.getAttributes().get(SessionAttributes.TOKEN);
+        UUID device = (UUID) session.getAttributes().get(SessionAttributes.DEVICE);
         Optional<Account> optional = accountRepository.findById(userId);
         if (optional.isPresent()) {
-            log.debug("disconnect: {}, token={}", optional.get().getName(), token);
+            log.debug("disconnect: {}, device={}", optional.get().getName(), device);
         }
     }
 
     @Override
-    public void connect(UUID token, WebSocketSession session) {
+    public void connect(UUID device, WebSocketSession session) {
         Long userId = (Long) session.getAttributes().get(SessionAttributes.USER_ID);
         Account account = accountRepository.findById(userId).orElseThrow();
         List<String> strings = session.getHandshakeHeaders().get("User-Agent");
@@ -66,7 +65,7 @@ public class ClipboardServiceImpl
         if (strings != null && !strings.isEmpty()) {
             ua = strings.get(0);
         }
-        log.debug("received connection: {}, token={}}, UserAgent[{}]", account.getName(), token, ua);
+        log.debug("received connection: {}, device={}}, UserAgent[{}]", account.getName(), device, ua);
     }
 
     @Override

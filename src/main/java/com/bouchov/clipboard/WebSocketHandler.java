@@ -45,8 +45,8 @@ public class WebSocketHandler extends TextWebSocketHandler {
         RequestBean request = new ObjectMapper().readValue(message.getPayload(), RequestBean.class);
         logger.debug("received message: {}", request);
         if (request.getEnter() != null) {
-            UUID token = request.getEnter().getToken();
-            service.connect(token, session);
+            UUID device = request.getEnter().getDevice();
+            service.connect(device, session);
         }
     }
 
