@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.web.servlet.ServletListenerRegistrationBean;
 import org.springframework.context.annotation.Bean;
 
 import javax.transaction.Transactional;
@@ -31,14 +30,6 @@ public class ClipboardApplication {
             userRepository.save(admin);
             logger.info("service successfully initialized");
         };
-    }
-
-    @Bean
-    public ServletListenerRegistrationBean<SessionListener> sessionListenerWithMetrics() {
-        ServletListenerRegistrationBean<SessionListener> listenerRegBean =
-                new ServletListenerRegistrationBean<>();
-        listenerRegBean.setListener(new SessionListener());
-        return listenerRegBean;
     }
 
     public static void main(String[] args) {

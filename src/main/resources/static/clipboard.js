@@ -212,6 +212,8 @@ class LoginWindow extends WebForm {
 }
 
 class ClipboardWindow extends WebForm {
+    BUFFER_SIZE = 4096
+
     constructor() {
         super('clipboardWindow')
         this.element = document.getElementById('clipboardWindow')
@@ -223,6 +225,7 @@ class ClipboardWindow extends WebForm {
         this.downloadFileList = document.getElementById("clipboardWindow-downloadFileList")
         this.uploadView = document.getElementById('clipboardWindow-uploadView')
         this.inputFile = document.getElementById("clipboardWindow-uploadFile")
+        this.inputFile.addEventListener('change', doChangeInputFile)
         this.uploadFileList = document.getElementById("clipboardWindow-uploadFileList")
 
         this.webSocket = undefined
@@ -230,6 +233,9 @@ class ClipboardWindow extends WebForm {
         this.addSubmitListener(doSubmitClipboard)
 
         this.contents = []
+        this.blobs = []
+        this.file = undefined
+        this.welcomeCallback = undefined
         this.anchor = undefined
         this.link = {token: undefined}
         this.currentView = this.textVew
@@ -237,14 +243,16 @@ class ClipboardWindow extends WebForm {
         this.uploadFileList.innerHTML = ''
     }
 
-    connect(device) {
+    connect(device, target, callback) {
         if (!this.webSocket || this.webSocket.readyState !== WebSocket.OPEN) {
             let url = getWebsocketProtocol() + '://' + getUrl() + '/websocket';
             this.log.log('connecting:', url)
-            this.webSocket = new WebSocket(url);
+            this.welcomeCallback = callback
             let form = this;
+            this.webSocket = new WebSocket(url);
+            this.webSocket.binaryType = "arraybuffer";
             this.webSocket.onopen = function () {
-                form.webSocket.send(JSON.stringify({enter: {device: device}}));
+                form.sendWebSocket(JSON.stringify({enter: {device: device, target: target}}));
             }
             this.webSocket.onmessage = clipboardWebsocketMessageHandler;
             this.webSocket.onclose = function () {
@@ -262,12 +270,40 @@ class ClipboardWindow extends WebForm {
         this.webSocket = undefined;
     }
 
+    sendWebSocket(data) {
+        if (typeof data == 'string') {
+            this.log.log("WEBSOCKET: >>> ", data)
+        } else if (data instanceof ArrayBuffer) {
+            this.log.log("WEBSOCKET: >>> ", data.byteLength)
+        }
+        this.webSocket.send(data)
+    }
+
     onWebsocketJsonMessage(message) {
         this.log.log('received message:', message)
+        if (message.welcome) {
+            if (this.welcomeCallback) {
+                this.welcomeCallback()
+                this.welcomeCallback = undefined
+            }
+        } else if (message.action) {
+            if (message.action === 'GET') {
+                if (this.currentView === this.uploadView) {
+                    this.uploadSlice(message)
+                }
+            }
+        }
     }
 
     onWebsocketArrayBuffer(message) {
         this.log.log('received array buffer[' + message.byteLength + ']')
+        this.saveSlice(message)
+    }
+
+    onInputFileChanged() {
+        this.contents = []
+        this.blobs = []
+        this.file = undefined
     }
 
     showUploadFilesView() {
@@ -298,6 +334,7 @@ class ClipboardWindow extends WebForm {
         } else {
             this.contents = contents;
         }
+        this.blobs = []
         if (this.contents.length === 0) {
             this.currentView = this.textVew;
             this.textarea.value = '';
@@ -311,14 +348,17 @@ class ClipboardWindow extends WebForm {
             } else if (record.type === 'FILE') {
                 if (record.source === deviceInfo.device) {
                     form.currentView = form.uploadView;
-                    form.uploadFileList.innerHTML = ''
+                    this.downloadFileList.innerHTML = ''
+                    this.uploadFileList.innerHTML = ''
                     this.contents.forEach(function(content, idx) {
                         form.writeUploadRecord(form.uploadFileList, idx, content)
                     })
+                    this.file = undefined
                     this.connect(deviceInfo.device)
                 } else {
                     form.currentView = form.downloadView;
-                    form.downloadFileList.innerHTML = ''
+                    this.downloadFileList.innerHTML = ''
+                    this.uploadFileList.innerHTML = ''
                     this.contents.forEach(function(content, idx) {
                         form.writeDownloadRecord(form.downloadFileList, idx, content)
                     })
@@ -338,8 +378,8 @@ class ClipboardWindow extends WebForm {
             '  </div>' +
             '  <div class="table-cell" style="width: 10%">' +
             '    <div class="table-cell-content">' +
-            '      <progress max="' + record.data.size + '" value="0" id="clipboardWindow-uploadFileProgress' + idx + '">' +
-            'загружено <span id="clipboardWindow-uploadFilePercent' + idx + '">0</span>%' +
+            '      <progress max="' + record.data.size + '" value="0" id="clipboardWindow-fileProgress' + idx + '">' +
+            'загружено <span id="clipboardWindow-filePercent' + idx + '">0</span>%' +
             '      </progress>' +
             '    </div>' +
             '  </div>' +
@@ -362,8 +402,8 @@ class ClipboardWindow extends WebForm {
             '  </div>' +
             '  <div class="table-cell" style="width: 10%">' +
             '    <div class="table-cell-content">' +
-            '      <progress max="' + record.data.size + '" value="0" id="clipboardWindow-downloadFileProgress' + idx + '">' +
-            'скачено <span id="clipboardWindow-downloadFilePercent' + idx + '">0</span>%' +
+            '      <progress max="' + record.data.size + '" value="0" id="clipboardWindow-fileProgress' + idx + '">' +
+            'скачено <span id="clipboardWindow-filePercent' + idx + '">0</span>%' +
             '      </progress>' +
             '    </div>' +
             '</div>'
@@ -442,8 +482,133 @@ class ClipboardWindow extends WebForm {
     }
 
     doSubmitDownload() {
-        this.connect(deviceInfo.device)
-        //todo make requests to download
+        if (this.contents.length === 0) {
+            this.log.log('nothing to download')
+            return
+        }
+        let form = this
+        this.connect(deviceInfo.device, this.contents[0].source,
+            function() {
+            form.downloadSlice()
+        })
+    }
+
+    downloadSlice() {
+        let blob = undefined
+        let content = undefined
+        let idx = this.blobs.length - 1
+        if (idx >= 0) {
+            blob = this.blobs[idx]
+            content = this.contents[idx]
+        }
+        if (blob === undefined || blob.pos >= blob.size || content === undefined) {
+            //next file
+            do {
+                idx++
+                if (idx === this.contents.length) {
+                    this.generateDownloadLink()
+                    return
+                }
+                content = this.contents[idx]
+                blob = {
+                    buffer: [],
+                    pos: 0,
+                    name: content.data.name,
+                    type: content.data.type,
+                    size: content.data.size
+                }
+                this.blobs.push(blob)
+            } while (blob.pos >= blob.size)
+        }
+        this.showProgress(idx, blob.pos, blob.size)
+        this.sendWebSocket(JSON.stringify(
+            {recipient: content.source,
+                message: {
+                    action: 'GET',
+                    client: deviceInfo.device,
+                    name: content.data.name,
+                    offset: blob.pos,
+                    length: this.BUFFER_SIZE
+                }
+            }));
+    }
+
+    saveSlice(buffer) {
+        let idx = this.blobs.length - 1
+        if (idx >= 0) {
+            let blob = this.blobs[idx]
+            blob.buffer.push(buffer)
+            blob.pos += buffer.byteLength
+            this.showProgress(idx, blob.pos, blob.size)
+            //next page
+            this.downloadSlice()
+        }
+    }
+
+    generateDownloadLink() {
+        this.blobs.forEach((blob, idx) => {
+            let data = new Blob(blob.buffer, {type: blob.type})
+            let url = window.URL.createObjectURL(data)
+            
+            let progress = document.getElementById('clipboardWindow-fileProgress' + idx)
+            let parent = progress.parentElement
+            parent.removeChild(progress)
+            let href = document.createElement('A')
+            parent.appendChild(href)
+            href.href = url
+            href.download = blob.name
+            href.innerText = 'download'
+        })
+    }
+
+    showProgress(idx, value, total) {
+        if (idx !== undefined) {
+            let progress = document.getElementById('clipboardWindow-fileProgress' + idx)
+            progress.value = value
+            let percent = document.getElementById('clipboardWindow-filePercent' + idx)
+            if (total === undefined) {
+                total = this.contents[idx].data.size
+            }
+            percent.innerText = '' + (total - value) * 100 / total
+        }
+    }
+
+    uploadSlice(slice) {
+        if (this.file) {
+            if (this.file.name !== slice.name) {
+                this.file = undefined
+            }
+        }
+        if (!this.file) {
+            for (let i=0; i < this.inputFile.files.length; i++) {
+                let file = this.inputFile.files[i]
+                if (file.name === slice.name) {
+                    this.file = file;
+                    break
+                }
+            }
+        }
+        if (!this.file) {
+            this.log.warn("file not found " + slice.name)
+            //send error
+        } else {
+            let idx
+            for (let i=0; i < this.contents.length; i++) {
+                if (this.contents[i].data.name === slice.name) {
+                    idx = i
+                    break
+                }
+            }
+            let chunk = this.file.slice(slice.offset, slice.offset + slice.length)
+            let reader = new FileReader()
+            let form = this
+            reader.onload = function (e) {
+                form.log.log('send ' + e.loaded)
+                form.showProgress(idx, slice.offset + slice.length)
+                form.sendWebSocket(reader.result)
+            }
+            reader.readAsArrayBuffer(chunk)
+        }
     }
 
     doShare() {
@@ -482,15 +647,15 @@ class ClipboardWindow extends WebForm {
             this.anchor = document.createElement('A')
         }
         this.anchor.href = '/shared/' + link.token
-        return '<A href="' + this.anchor.href + '">Ссылка</A>'
+        return '<A href="' + this.anchor.href + '">Ссылка ' + link.token + '</A>'
     }
 }
 
-var loadingWindow = new LoadingWindow()
-var messageWindow = new MessageWindow()
-var loginWindow = new LoginWindow()
-var clipboardWindow = new ClipboardWindow()
-var deviceInfo = new DeviceInfo()
+const loadingWindow = new LoadingWindow()
+const messageWindow = new MessageWindow()
+const loginWindow = new LoginWindow()
+const clipboardWindow = new ClipboardWindow()
+const deviceInfo = new DeviceInfo()
 
 
 //callbacks
@@ -510,12 +675,16 @@ function doClickShareButton(event) {
     clipboardWindow.doShare()
 }
 
+function doChangeInputFile(event) {
+    clipboardWindow.onInputFileChanged()
+}
+
 function clipboardWebsocketMessageHandler(event) {
     log.log('WEBSOCKET: <<< ', event.data);
     if (typeof event.data == 'string') {
         let msg = JSON.parse(event.data);
         clipboardWindow.onWebsocketJsonMessage(msg)
-    } else if (event.data instanceof "arraybuffer") {
+    } else if (event.data instanceof ArrayBuffer) {
         clipboardWindow.onWebsocketArrayBuffer(event.data)
     }
 }

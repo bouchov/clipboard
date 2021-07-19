@@ -10,6 +10,7 @@ import java.util.UUID;
  */
 public class EnterBean {
     private UUID device;
+    private UUID target;
 
     public EnterBean() {
     }
@@ -22,10 +23,19 @@ public class EnterBean {
         this.device = device;
     }
 
+    public UUID getTarget() {
+        return target;
+    }
+
+    public void setTarget(UUID target) {
+        this.target = target;
+    }
+
     @Override
     public String toString() {
         return "[EnterBean" +
                 " device=" + device +
+                ", target=" + target +
                 ']';
     }
 }

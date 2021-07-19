@@ -54,7 +54,7 @@ public class MainController extends AbstractController {
     public ResponseBean login(
             @RequestParam(name = "name") String name,
             @RequestParam(name = "password") String password,
-            @RequestParam(name = "token", required = false) UUID token) {
+            @RequestParam(name = "device", required = false) UUID device) {
         Long userId = (Long) session.getAttribute(SessionAttributes.USER_ID);
         Account user = accountRepository.findByName(name)
                 .orElseThrow(() -> new UserNotFoundException(name));
@@ -66,14 +66,15 @@ public class MainController extends AbstractController {
             throw new UserNotFoundException(name);
         }
         session.setAttribute(SessionAttributes.USER_ID, user.getId());
-        if (token == null) {
-            token = UUID.randomUUID();
+        if (device == null) {
+            device = UUID.randomUUID();
         }
-        UUID theToken = token;
-        session.setAttribute(SessionAttributes.DEVICE, theToken);
-        ResponseBean bean = new ResponseBean(user, theToken);
+        session.setAttribute(SessionAttributes.DEVICE, device);
+        service.registerDevice(user, device);
+        ResponseBean bean = new ResponseBean(user, device);
+        UUID theDevice = device;
         Optional<Clipboard> clipboard = service.getClipboard(user);
-        clipboard.ifPresent(value -> bean.setContents(getContentsBean(theToken, value)));
+        clipboard.ifPresent(value -> bean.setContents(getContentsBean(theDevice, value)));
         return bean;
     }
 
@@ -133,16 +134,16 @@ public class MainController extends AbstractController {
             @RequestBody List<ContentBean> contents) {
         checkAuthorization(session);
         Account account = getUser(session, accountRepository).orElseThrow();
-        UUID token = (UUID) session.getAttribute(SessionAttributes.DEVICE);
+        UUID device = (UUID) session.getAttribute(SessionAttributes.DEVICE);
         if (contents.isEmpty()) {
             service.deleteContents(account);
             return Collections.emptyList();
         } else {
             service.setContents(contents.stream()
-                    .map(b -> new Content(account, b.getType(), token, b.getData()))
+                    .map(b -> new Content(account, b.getType(), device, b.getData()))
                     .collect(Collectors.toList()));
             Clipboard clipboard = service.getClipboard(account).orElseThrow();
-            return getContentsBean(token, clipboard);
+            return getContentsBean(device, clipboard);
         }
     }
 
@@ -173,6 +174,10 @@ public class MainController extends AbstractController {
         return content.replace("${content}", text);
     }
 
+    @GetMapping("/logout")
+    public void logout() {
+        session.invalidate();
+    }
 
     @ResponseStatus(HttpStatus.NOT_FOUND)
     static class UserNotFoundException extends RuntimeException {

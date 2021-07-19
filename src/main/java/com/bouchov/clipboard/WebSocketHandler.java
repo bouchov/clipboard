@@ -1,5 +1,6 @@
 package com.bouchov.clipboard;
 
+import com.bouchov.clipboard.protocol.EnterBean;
 import com.bouchov.clipboard.protocol.RequestBean;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -10,7 +11,7 @@ import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
-import org.springframework.web.socket.handler.TextWebSocketHandler;
+import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -22,7 +23,7 @@ import java.util.UUID;
  * Copyright 2014 ConnectiveGames LLC. All rights reserved.
  */
 @Component
-public class WebSocketHandler extends TextWebSocketHandler {
+public class WebSocketHandler extends AbstractWebSocketHandler {
     private final Logger log = LoggerFactory.getLogger(WebSocketHandler.class);
 
     @Autowired
@@ -45,19 +46,28 @@ public class WebSocketHandler extends TextWebSocketHandler {
         RequestBean request = new ObjectMapper().readValue(message.getPayload(), RequestBean.class);
         log.debug("received message: {}", request);
         if (request.getEnter() != null) {
-            UUID device = request.getEnter().getDevice();
+            EnterBean enter = request.getEnter();
+            UUID device = enter.getDevice();
             UUID deviceFromSession = (UUID) session.getAttributes().get(SessionAttributes.DEVICE);
             if (!Objects.equals(device, deviceFromSession)) {
                 log.debug("different devices: {} and {}", device, deviceFromSession);
             }
-            service.connect(device, session);
+            try {
+                service.connect(device, enter.getTarget(), session);
+            } catch (Exception e) {
+                log.warn("error connecting client", e);
+                session.close();
+            }
+        } else if (request.getRecipient() != null) {
+            service.sendMessage(request.getRecipient(), request.getMessage(), session);
+        } else {
+            log.warn("unsupported message");
         }
     }
 
     @Override
     protected void handleBinaryMessage(WebSocketSession session, BinaryMessage message) {
-        super.handleBinaryMessage(session, message);
-        //TODO (axel): implement method body
-        throw new UnsupportedOperationException("handleBinaryMessage");
+        log.debug("received binary message: {}", message.getPayloadLength());
+        service.sendBinaryMessageToPipe(message.getPayload(), session);
     }
 }

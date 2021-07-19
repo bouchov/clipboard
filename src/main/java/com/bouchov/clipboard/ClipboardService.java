@@ -5,6 +5,7 @@ import com.bouchov.clipboard.entities.Clipboard;
 import com.bouchov.clipboard.entities.Content;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -18,7 +19,11 @@ import java.util.UUID;
 public interface ClipboardService {
     void disconnect(WebSocketSession session);
 
-    void connect(UUID device, WebSocketSession session);
+    void connect(UUID device, UUID target, WebSocketSession session);
+
+    void sendMessage(UUID target, String message, WebSocketSession session);
+
+    void sendBinaryMessageToPipe(ByteBuffer buffer, WebSocketSession session);
 
     Optional<Clipboard> getClipboard(Account account);
 
@@ -29,4 +34,8 @@ public interface ClipboardService {
     void setContents(List<Content> contents);
 
     Optional<String> shareClipboard(Account account);
+
+    void unregisterDevice(Long accountId, UUID device);
+
+    void registerDevice(Account account, UUID device);
 }
