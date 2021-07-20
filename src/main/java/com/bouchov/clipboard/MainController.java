@@ -1,7 +1,6 @@
 package com.bouchov.clipboard;
 
 import com.bouchov.clipboard.entities.*;
-import com.bouchov.clipboard.protocol.AccountBean;
 import com.bouchov.clipboard.protocol.ContentBean;
 import com.bouchov.clipboard.protocol.LinkBean;
 import com.bouchov.clipboard.protocol.ResponseBean;
@@ -86,9 +85,9 @@ public class MainController extends AbstractController {
     }
 
     @PostMapping("/register")
-    public AccountBean register(
-            @RequestParam String name,
-            @RequestParam String password) {
+    public ResponseBean register(
+            @RequestParam(name = "name") String name,
+            @RequestParam(name = "password") String password) {
         Account user = accountRepository.findByName(name).orElse(null);
         if (user != null) {
             throw new UserAlreadyExistsException(name);
@@ -97,7 +96,10 @@ public class MainController extends AbstractController {
         user = accountRepository.save(user);
 
         session.setAttribute(SessionAttributes.USER_ID, user.getId());
-        return new AccountBean(user);
+        UUID device = UUID.randomUUID();
+        session.setAttribute(SessionAttributes.DEVICE, device);
+        service.registerDevice(user, device);
+        return new ResponseBean(user, device);
     }
 
     @RequestMapping("/ping")

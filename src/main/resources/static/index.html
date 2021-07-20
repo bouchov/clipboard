@@ -51,7 +51,7 @@
             </div>
         </div>
         <button type="submit" class="dialog-button" id="loginWindow-submit">Войти</button>
-        <button onclick="showRegisterWindow()" type="button" class="dialog-button">Регистрация</button>
+        <button onclick="doUserRegistration()" type="button" class="dialog-button">Регистрация</button>
     </form>
 </div>
 <div id="clipboardWindow" class="modal">
@@ -213,5 +213,9 @@
 
     function showContentClipboard() {
         deviceInfo.initApplication();
+    }
+
+    function doUserRegistration() {
+        loginWindow.doRegister()
     }
 </script>

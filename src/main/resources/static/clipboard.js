@@ -156,7 +156,7 @@ class LoginWindow extends WebForm {
     }
 
     beforeShow() {
-        this.submitButton.disabled = false;
+        enableAllButtons(this.element)
         return super.beforeShow();
     }
 
@@ -174,14 +174,30 @@ class LoginWindow extends WebForm {
     }
 
     doSubmit() {
+        this.doLoginOrRegister(false)
+    }
+
+    doRegister() {
+        this.doLoginOrRegister(true)
+    }
+
+    doLoginOrRegister(doRegister) {
         if (this.userName.value == null || this.userName.value === ''
             || this.userPassword.value == null || this.userPassword.value === '') {
             return false
         }
-        this.submitButton.disabled = true
+        disableAllButtons(this.element)
         let login = this.userName.value
         let password = this.userPassword.value
         this.userPassword.value = ''
+        if (doRegister) {
+            this.doRegisterRequest(login, password)
+        } else {
+            this.doLoginRequest(login, password)
+        }
+    }
+
+    doLoginRequest(login, password) {
         let form = this
         let xhttp = new XMLHttpRequest()
         xhttp.onreadystatechange = function () {
@@ -193,10 +209,10 @@ class LoginWindow extends WebForm {
                 form.onLoginSuccess(response)
                 form.runCallback()
             } else if (this.status === 409) {
-                //need re-login
                 form.log.warn('Need ReLogin: ' + this.status)
                 form.userPassword.value = password;
-                messageWindow.showMessage('Произошла ошибка. Попробуйте ещё раз.', function() {form.show()})
+                messageWindow.showMessage('Произошла ошибка. Попробуйте ещё раз.',
+                    function() {form.show()})
             } else {
                 form.log.warn('Login Failed: ' + this.status);
                 messageWindow.showMessage(this.responseText, function() {form.show()})
@@ -208,6 +224,30 @@ class LoginWindow extends WebForm {
         } else {
             this.sendPost(xhttp, '/', 'name=' + login + '&password=' + password)
         }
+    }
+
+    doRegisterRequest(login, password) {
+        let form = this
+        let xhttp = new XMLHttpRequest()
+        xhttp.onreadystatechange = function () {
+            form.hide();
+            if (this.status === 200) {
+                form.log.log('WEB: <<< ' + xhttp.responseText)
+                let response = JSON.parse(this.responseText)
+                form.log.log('Signed-In Successfully')
+                form.onLoginSuccess(response)
+                form.runCallback()
+            } else if (this.status === 409) {
+                form.log.warn('User already exists')
+                form.userPassword.value = password;
+                messageWindow.showMessage('Произошла ошибка. Попробуйте другой логин.',
+                    function() {form.show()})
+            } else {
+                form.log.warn('Registration Failed: ' + this.status);
+                messageWindow.showMessage(this.responseText, function() {form.show()})
+            }
+        };
+        this.sendPost(xhttp, '/register', 'name=' + login + '&password=' + password)
     }
 }
 
