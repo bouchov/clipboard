@@ -127,25 +127,24 @@ public class ClipboardServiceImpl
 
         }
         container.addConnection(device, session);
-        sendMessage(account, session, asMessage(new ResponseBean(true)));
+        sendMessage(userId, session, asMessage(new ResponseBean(true)));
     }
 
     @Override
     public void sendMessage(UUID target, String message, WebSocketSession session) {
         Long userId = (Long) session.getAttributes().get(SessionAttributes.USER_ID);
-        Account account = accountRepository.findById(userId).orElseThrow();
         Container container = contents.get(userId);
         if (container == null) {
-            throw new IllegalStateException("cannot find clipboard of user " + account.getName());
+            throw new IllegalStateException("cannot find clipboard of user " + userId);
         }
 
         Optional<WebSocketSession> connection = container.getConnection(target);
         if (connection.isPresent()) {
             WebSocketSession dest = connection.get();
-            sendMessage(account, dest, asMessage(message));
+            sendMessage(userId, dest, asMessage(message));
         } else {
-            log.warn("sendMessage: unknown device: " + target + " of user " + account.getName());
-            throw new IllegalStateException("unknown device: " + target + " of user " + account.getName());
+            log.warn("sendMessage: unknown device: " + target + " of user " + userId);
+            throw new IllegalStateException("unknown device: " + target + " of user " + userId);
         }
     }
 
@@ -153,22 +152,21 @@ public class ClipboardServiceImpl
     public void sendBinaryMessageToPipe(ByteBuffer buffer, WebSocketSession session) {
         Long userId = (Long) session.getAttributes().get(SessionAttributes.USER_ID);
         UUID device = (UUID) session.getAttributes().get(SessionAttributes.DEVICE);
-        Account account = accountRepository.findById(userId).orElseThrow();
         Container container = contents.get(userId);
         if (container == null) {
-            throw new IllegalStateException("cannot find clipboard of user " + account.getName());
+            throw new IllegalStateException("cannot find clipboard of user " + userId);
         }
         if (Objects.equals(container.owner, device)) {
             UUID target = container.target;
             Optional<WebSocketSession> connection = container.getConnection(target);
             if (connection.isPresent()) {
-                sendMessage(account, connection.get(), asMessage(buffer));
+                sendMessage(userId, connection.get(), asMessage(buffer));
             } else {
-                sendMessage(account, session, asMessage(new ResponseBean(3, "pipe is not exist")));
+                sendMessage(userId, session, asMessage(new ResponseBean(3, "pipe is not exist")));
                 throw new IllegalStateException("cannot send pipe, not an owner " + device);
             }
         } else {
-            sendMessage(account, session, asMessage(new ResponseBean(2, "not an owner")));
+            sendMessage(userId, session, asMessage(new ResponseBean(2, "not an owner")));
             throw new IllegalStateException("cannot send pipe, not an owner " + device);
         }
     }
@@ -189,11 +187,11 @@ public class ClipboardServiceImpl
         }
     }
 
-    private void sendMessage(Account account, WebSocketSession session, WebSocketMessage<?> message) {
+    private void sendMessage(Long userId, WebSocketSession session, WebSocketMessage<?> message) {
         try {
             session.sendMessage(message);
         } catch (IOException e) {
-            log.warn("unable to send message to " + account.getName(), e);
+            log.warn("unable to send message to " + userId, e);
         }
     }
 
@@ -280,7 +278,7 @@ public class ClipboardServiceImpl
     @Override
     public Optional<Clipboard> getClipboardByToken(String token) {
         Container container = tokens.get(token);
-        if (Objects.equals(token, container.token)) {
+        if (container != null && Objects.equals(token, container.token)) {
             return getContents(container);
         }
         return Optional.empty();

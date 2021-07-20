@@ -32,6 +32,11 @@ public class ResponseBean {
         errorCode = 0;
     }
 
+    public ResponseBean(UUID device) {
+        this.device = device;
+        errorCode = 0;
+    }
+
     public ResponseBean(Account account, UUID device) {
         this(account);
         this.device = device;

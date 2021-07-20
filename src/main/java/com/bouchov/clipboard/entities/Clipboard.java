@@ -34,4 +34,8 @@ public class Clipboard {
     public Content getContent() {
         return contents.get(0);
     }
+
+    public boolean hasContent() {
+        return contents != null && !contents.isEmpty();
+    }
 }

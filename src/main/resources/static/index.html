@@ -55,7 +55,7 @@
     </form>
 </div>
 <div id="clipboardWindow" class="modal">
-    <div class="menu-bar">
+    <div class="menu-bar" id="clipboardWindow-menuBar">
         <span class="menu-button" onclick="showContentClipboard()" title="View content">&#9215;</span>
         <span class="menu-button" onclick="showUploadFilesClipboard()" title="Send files">&#128462;</span>
         <span class="menu-button" onclick="showTextClipboard()" title="Send text">&#84;</span>
@@ -82,7 +82,7 @@
                 </div>
                 <div class="table-cell" style="width: 50%">
                     <div class="table-cell-content">
-                        <button type="button" id="clipboardWindow-share" class="dialog-button">Поделиться</button>
+                        <button type="button" class="dialog-button" name="share" onclick="doClickShareButton()">Поделиться</button>
                     </div>
                 </div>
             </div>
@@ -212,10 +212,18 @@
     }
 
     function showContentClipboard() {
-        deviceInfo.initApplication();
+        deviceInfo.doReload();
     }
 
     function doUserRegistration() {
         loginWindow.doRegister()
+    }
+
+    function doClickShareButton() {
+        clipboardWindow.doShare()
+    }
+
+    function doClearClipboard() {
+        clipboardWindow.doClear()
     }
 </script>

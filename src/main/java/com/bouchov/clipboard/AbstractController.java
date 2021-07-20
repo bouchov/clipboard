@@ -22,6 +22,12 @@ public class AbstractController {
         }
     }
 
+    protected void checkIsNotAnonymous(HttpSession session) {
+        if (session.getAttribute(SessionAttributes.TOKEN) != null) {
+            throw new AuthorizationRequiredException("anonymous access denied");
+        }
+    }
+
     protected Optional<Account> getUser(HttpSession session, AccountRepository repository) {
         Long userId = (Long) session.getAttribute(SessionAttributes.USER_ID);
         if (userId == null) {
@@ -33,6 +39,10 @@ public class AbstractController {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     static class AuthorizationRequiredException extends RuntimeException {
         public AuthorizationRequiredException() {
+        }
+
+        public AuthorizationRequiredException(String message) {
+            super(message);
         }
     }
 }

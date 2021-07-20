@@ -251,6 +251,8 @@ function changeAllButtons(element, disabled) {
     do {
         if (node.tagName === 'BUTTON') {
             node.disabled = disabled;
+        } else if (node.firstChild) {
+            changeAllButtons(node, disabled)
         }
         node = node.nextSibling;
     } while (node);

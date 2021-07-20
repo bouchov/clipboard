@@ -61,6 +61,7 @@ class DeviceInfo extends WebForm {
             this.device = undefined
         }
         this.showDeviceInfo();
+        this.mode = 'OWNER'
     }
 
     reset() {
@@ -77,10 +78,15 @@ class DeviceInfo extends WebForm {
     }
 
     saveAccount(account, device) {
-        this.account = account;
-        localStorage.setItem(this.KEY_USER, JSON.stringify(account));
-        this.device = device;
-        localStorage.setItem(this.KEY_DEVICE, device);
+        if (this.mode === 'OWNER') {
+            this.account = account;
+            localStorage.setItem(this.KEY_USER, JSON.stringify(account));
+            this.device = device;
+            localStorage.setItem(this.KEY_DEVICE, device);
+        } else {
+            this.reset()
+            this.device = device;
+        }
     }
 
     showApplicationForm() {
@@ -88,29 +94,36 @@ class DeviceInfo extends WebForm {
         clipboardWindow.show()
     }
 
-    initApplication() {
-        if (this.account.id) {
-            let form = this;
-            let xhttp = new XMLHttpRequest();
-            xhttp.onreadystatechange = function () {
-                if (this.status === 200) {
-                    form.log.log('WEB: <<< ' + xhttp.responseText);
-                    let response = JSON.parse(this.responseText);
-                    form.log.log('user is logged in', response.account);
-                    loginWindow.onLoginSuccess(response);
-                    form.showApplicationForm();
-                } else {
-                    form.log.warn('Session expired');
-                    form.reset()
-                    form.showDeviceInfo()
-                    loginWindow.show();
-                }
-            };
-            this.sendGet(xhttp, '/ping');
-        } else {
-            this.log.log('user is not logged in')
-            loginWindow.show();
+    doReload() {
+        if (this.mode === 'OWNER') {
+            this.initApplication()
         }
+    }
+
+    initApplication() {
+        let form = this;
+        let xhttp = new XMLHttpRequest()
+        xhttp.onreadystatechange = function () {
+            if (this.status === 200) {
+                form.log.log('WEB: <<< ' + this.responseText)
+                let response = JSON.parse(this.responseText)
+                if (response.account) {
+                    form.mode = 'OWNER'
+                    form.log.log('user is logged in', response.account)
+                } else {
+                    form.mode = 'GUEST'
+                    form.log.log('entered anonymous user', response.device)
+                }
+                loginWindow.onLoginSuccess(response)
+                form.showApplicationForm()
+            } else {
+                form.log.warn('User is not logged in')
+                form.reset()
+                form.showDeviceInfo()
+                loginWindow.show()
+            }
+        };
+        this.sendGet(xhttp, '/ping')
     }
 
     show() {
@@ -131,7 +144,6 @@ class LoginWindow extends WebForm {
         this.element = document.getElementById('loginWindow');
         this.userName = document.getElementById('loginWindow-name');
         this.userPassword = document.getElementById('loginWindow-password');
-        this.submitButton = document.getElementById('loginWindow-submit');
 
         this.addSubmitListener(doSubmitLoginWindow)
 
@@ -145,7 +157,9 @@ class LoginWindow extends WebForm {
 
     onLoginSuccess(response) {
         let account = response.account
-        this.saveLogin(account.name)
+        if (account) {
+            this.saveLogin(account.name)
+        }
         deviceInfo.saveAccount(account, response.device)
         clipboardWindow.saveContents(response.contents)
     }
@@ -257,10 +271,9 @@ class ClipboardWindow extends WebForm {
     constructor() {
         super('clipboardWindow')
         this.element = document.getElementById('clipboardWindow')
+        this.menuBar = document.getElementById('clipboardWindow-menuBar')
         this.textVew = document.getElementById('clipboardWindow-textView')
         this.textarea = document.getElementById('clipboardWindow-text')
-        this.shareButton = document.getElementById('clipboardWindow-share')
-        this.shareButton.addEventListener('click', doClickShareButton)
         this.downloadView = document.getElementById('clipboardWindow-downloadView')
         this.downloadFileList = document.getElementById("clipboardWindow-downloadFileList")
         this.uploadView = document.getElementById('clipboardWindow-uploadView')
@@ -281,6 +294,39 @@ class ClipboardWindow extends WebForm {
         this.currentView = this.textVew
         this.downloadFileList.innerHTML = ''
         this.uploadFileList.innerHTML = ''
+    }
+
+    beforeShow() {
+        this.textVew.style.display = 'none'
+        this.downloadView.style.display = 'none'
+        this.uploadView.style.display = 'none'
+        if (deviceInfo.mode === 'GUEST') {
+            disableAllButtons(this.element)
+            forInputs(this.name, 'textarea', area => {
+                area.disabled = true
+            })
+        } else {
+            let disabledShare = this.contents.length === 0
+            forInputs(this.name, 'button', input => {
+                if (input.name === 'share') {
+                    input.disabled = disabledShare
+                }
+            })
+        }
+        if (this.currentView === this.textVew) {
+            this.textVew.style.display = 'block';
+            this.log.log('show text view')
+        }
+        if (this.currentView === this.downloadView) {
+            enableAllButtons(this.element)
+            this.downloadView.style.display = 'block'
+            this.log.log('show download view')
+        }
+        if (this.currentView === this.uploadView) {
+            this.uploadView.style.display = 'block'
+            this.log.log('show upload view')
+        }
+        return super.beforeShow()
     }
 
     connect(device, target, callback) {
@@ -332,6 +378,9 @@ class ClipboardWindow extends WebForm {
                     this.uploadSlice(message)
                 }
             }
+        } else if (message.errorCode) {
+            this.log.warn('error received: ', message);
+            messageWindow.showMessage(message.errorMessage)
         }
     }
 
@@ -347,11 +396,13 @@ class ClipboardWindow extends WebForm {
     }
 
     showUploadFilesView() {
-        if (this.currentView !== this.uploadView) {
-            this.hide()
-            this.currentView = this.uploadView
-            this.link = {token: undefined}
-            this.show()
+        if (deviceInfo.mode === 'OWNER') {
+            if (this.currentView !== this.uploadView) {
+                this.hide()
+                this.currentView = this.uploadView
+                this.link = {token: undefined}
+                this.show()
+            }
         }
     }
 
@@ -393,6 +444,7 @@ class ClipboardWindow extends WebForm {
                     this.contents.forEach(function(content, idx) {
                         form.writeUploadRecord(form.uploadFileList, idx, content)
                     })
+                    this.writeShareButton(this.uploadFileList)
                     this.file = undefined
                     this.connect(deviceInfo.device)
                 } else {
@@ -406,6 +458,18 @@ class ClipboardWindow extends WebForm {
                 }
             }
         }
+    }
+
+    writeShareButton(element) {
+        element.insertAdjacentHTML('beforeend',
+            '<div class="table-row">' +
+            '  <div class="table-cell" style="width: 100%">' +
+            '    <div class="table-cell-content">' +
+            '      <button type="button" class="dialog-button" name="share" onclick="doClickShareButton()">Поделиться</button>' +
+            '    </div>' +
+            '  </div>' +
+            '</div>'
+            )
     }
 
     writeUploadRecord(element, idx, record) {
@@ -450,26 +514,6 @@ class ClipboardWindow extends WebForm {
         )
     }
 
-    beforeShow() {
-        this.textVew.style.display = 'none'
-        this.downloadView.style.display = 'none'
-        this.uploadView.style.display = 'none'
-        if (this.currentView === this.textVew) {
-            this.shareButton.disabled = this.contents.length !== 1
-            this.textVew.style.display = 'block';
-            this.log.log('show text view')
-        }
-        if (this.currentView === this.downloadView) {
-            this.downloadView.style.display = 'block'
-            this.log.log('show download view')
-        }
-        if (this.currentView === this.uploadView) {
-            this.uploadView.style.display = 'block'
-            this.log.log('show upload view')
-        }
-        return super.beforeShow()
-    }
-
     doSubmit() {
         if (this.currentView === this.downloadView) {
             this.doSubmitDownload()
@@ -482,7 +526,9 @@ class ClipboardWindow extends WebForm {
         let records = []
         if (this.currentView === this.textVew) {
             let data = this.textarea.value
-            records = [{type: 'CLIPBOARD', data: data}]
+            if (data !== '') {
+                records = [{type: 'CLIPBOARD', data: data}]
+            }
         } else if (this.currentView === this.uploadView) {
             if (this.inputFile.files.length > 0) {
                 for (let i=0; i < this.inputFile.files.length; i++) {
@@ -500,24 +546,34 @@ class ClipboardWindow extends WebForm {
             }
         }
         if (records.length !== 0) {
-            let form = this;
-            let xhttp = new XMLHttpRequest();
-
-            xhttp.onreadystatechange = function () {
-                form.hide()
-                if (this.status === 200) {
-                    form.log.log('WEB: <<< ' + xhttp.responseText);
-                    let contents = JSON.parse(xhttp.responseText);
-                    form.saveContents(contents)
-                    form.show()
-                } else {
-                    form.log.warn('error saving content: ', xhttp.responseText);
-                    messageWindow.showMessage(this.responseText, function() {form.show()})
-                }
-            };
-            this.sendJson(xhttp, '/clipboard', records);
+            this.sendRecords(records)
         } else {
             log.warn("cannot send empty records")
+        }
+    }
+
+    sendRecords(records) {
+        let form = this;
+        let xhttp = new XMLHttpRequest();
+
+        xhttp.onreadystatechange = function () {
+            form.hide()
+            if (this.status === 200) {
+                form.log.log('WEB: <<< ' + xhttp.responseText);
+                let contents = JSON.parse(xhttp.responseText);
+                form.saveContents(contents)
+                form.show()
+            } else {
+                form.log.warn('error saving content: ', xhttp.responseText);
+                messageWindow.showMessage(this.responseText, function() {form.show()})
+            }
+        };
+        this.sendJson(xhttp, '/clipboard', records);
+    }
+
+    doClear() {
+        if (deviceInfo.mode === 'OWNER') {
+            this.sendRecords([])
         }
     }
 
@@ -629,8 +685,16 @@ class ClipboardWindow extends WebForm {
             }
         }
         if (!this.file) {
-            this.log.warn("file not found " + slice.name)
-            //send error
+            this.log.warn("file not found: ", slice.name)
+            this.sendWebSocket(JSON.stringify(
+                {recipient: slice.client,
+                    message: {
+                        errorCode: 404,
+                        errorMessage: 'File not found ' + slice.name,
+                        client: deviceInfo.device,
+                        name: slice.name
+                    }
+                }));
         } else {
             let idx
             for (let i=0; i < this.contents.length; i++) {
@@ -652,32 +716,38 @@ class ClipboardWindow extends WebForm {
     }
 
     doShare() {
-        if (this.currentView === this.textVew) {
-            if (this.contents.length === 1) {
+        if (this.contents.length !== 0) {
+            let form = this;
+            if (this.link.token) {
+                form.hide()
+                messageWindow.showMessage(this.generateShareLink(this.link),
+                    function() {form.show()})
+            } else {
                 let form = this;
-                if (this.link.token) {
-                    form.hide()
-                    messageWindow.showMessage(this.generateShareLink(this.link),
-                        function() {form.show()})
-                } else {
-                    let form = this;
-                    let xhttp = new XMLHttpRequest();
+                let xhttp = new XMLHttpRequest();
 
-                    xhttp.onreadystatechange = function () {
-                        form.hide()
-                        if (this.status === 200) {
-                            form.log.log('WEB: <<< ' + xhttp.responseText);
-                            let link = JSON.parse(xhttp.responseText);
-                            form.setLink(link)
-                            messageWindow.showMessage(form.generateShareLink(link),
-                                function() {form.show()})
-                        } else {
-                            form.log.warn('error saving content: ', xhttp.responseText);
-                            messageWindow.showMessage(this.responseText, function() {form.show()})
-                        }
-                    };
-                    this.sendGet(xhttp, '/share');
-                }
+                xhttp.onreadystatechange = function () {
+                    form.hide()
+                    if (this.status === 200) {
+                        form.log.log('WEB: <<< ' + xhttp.responseText);
+                        let link = JSON.parse(xhttp.responseText);
+                        form.setLink(link)
+                        messageWindow.showMessage(form.generateShareLink(link),
+                            function() {form.show()})
+                    } else if (this.status === 409) {
+                        form.log.warn('Cannot share. Your are not the owner of content')
+                        messageWindow.showMessage('Произошла ошибка. Можно поделиться только своими данными.',
+                            function() {form.show()})
+                    } else if (this.status === 404) {
+                        form.log.warn('Cannot share. Empty clipboard')
+                        messageWindow.showMessage('Произошла ошибка. Можно поделиться только своими данными.',
+                            function() {form.show()})
+                    } else {
+                        form.log.warn('error share content: ', xhttp.responseText);
+                        messageWindow.showMessage(this.responseText, function() {form.show()})
+                    }
+                };
+                this.sendGet(xhttp, '/share');
             }
         }
     }
@@ -709,10 +779,6 @@ function doSubmitLoginWindow(event) {
 
 function doSubmitClipboard(event) {
     clipboardWindow.doSubmit()
-}
-
-function doClickShareButton(event) {
-    clipboardWindow.doShare()
 }
 
 function doChangeInputFile(event) {

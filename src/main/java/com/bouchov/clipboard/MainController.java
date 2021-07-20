@@ -5,17 +5,12 @@ import com.bouchov.clipboard.protocol.ContentBean;
 import com.bouchov.clipboard.protocol.LinkBean;
 import com.bouchov.clipboard.protocol.ResponseBean;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.view.RedirectView;
 
 import javax.servlet.http.HttpSession;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -30,17 +25,14 @@ import java.util.stream.Collectors;
 public class MainController extends AbstractController {
     private final AccountRepository accountRepository;
     private final ClipboardService service;
-    private final ResourceLoader resourceLoader;
     private final HttpSession session;
 
     @Autowired
     public MainController(AccountRepository accountRepository,
             ClipboardService service,
-            ResourceLoader resourceLoader,
             HttpSession session) {
         this.accountRepository = accountRepository;
         this.service = service;
-        this.resourceLoader = resourceLoader;
         this.session = session;
     }
 
@@ -70,14 +62,14 @@ public class MainController extends AbstractController {
         }
         session.setAttribute(SessionAttributes.DEVICE, device);
         service.registerDevice(user, device);
+        session.removeAttribute(SessionAttributes.TOKEN);
         ResponseBean bean = new ResponseBean(user, device);
-        UUID theDevice = device;
         Optional<Clipboard> clipboard = service.getClipboard(user);
-        clipboard.ifPresent(value -> bean.setContents(getContentsBean(theDevice, value)));
+        clipboard.ifPresent(value -> bean.setContents(getContentsBean(value)));
         return bean;
     }
 
-    private List<ContentBean> getContentsBean(UUID token, Clipboard clipboard) {
+    private List<ContentBean> getContentsBean(Clipboard clipboard) {
         List<Content> page = clipboard.getContents();
         return page.stream()
                 .map(ContentBean::new)
@@ -99,6 +91,7 @@ public class MainController extends AbstractController {
         UUID device = UUID.randomUUID();
         session.setAttribute(SessionAttributes.DEVICE, device);
         service.registerDevice(user, device);
+        session.removeAttribute(SessionAttributes.TOKEN);
         return new ResponseBean(user, device);
     }
 
@@ -111,9 +104,14 @@ public class MainController extends AbstractController {
         Account user = accountRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
         UUID token = (UUID) session.getAttribute(SessionAttributes.DEVICE);
-        ResponseBean bean = new ResponseBean(user, token);
+        ResponseBean bean;
+        if (session.getAttribute(SessionAttributes.TOKEN) == null) {
+            bean = new ResponseBean(user, token);
+        } else {
+            bean = new ResponseBean(token);
+        }
         Optional<Clipboard> clipboard = service.getClipboard(user);
-        clipboard.ifPresent(value -> bean.setContents(getContentsBean(token, value)));
+        clipboard.ifPresent(value -> bean.setContents(getContentsBean(value)));
         return bean;
     }
 
@@ -121,11 +119,9 @@ public class MainController extends AbstractController {
     public List<ContentBean> getClipboard() {
         checkAuthorization(session);
         Account account = getUser(session, accountRepository).orElseThrow();
-        UUID token = (UUID) session.getAttribute(SessionAttributes.DEVICE);
-
         Optional<Clipboard> clipboard = service.getClipboard(account);
         if (clipboard.isPresent()) {
-            return getContentsBean(token, clipboard.get());
+            return getContentsBean(clipboard.get());
         } else {
             return Collections.emptyList();
         }
@@ -135,6 +131,7 @@ public class MainController extends AbstractController {
     public List<ContentBean> setClipboard(
             @RequestBody List<ContentBean> contents) {
         checkAuthorization(session);
+        checkIsNotAnonymous(session);
         Account account = getUser(session, accountRepository).orElseThrow();
         UUID device = (UUID) session.getAttribute(SessionAttributes.DEVICE);
         if (contents.isEmpty()) {
@@ -145,35 +142,49 @@ public class MainController extends AbstractController {
                     .map(b -> new Content(account, b.getType(), device, b.getData()))
                     .collect(Collectors.toList()));
             Clipboard clipboard = service.getClipboard(account).orElseThrow();
-            return getContentsBean(device, clipboard);
+            return getContentsBean(clipboard);
         }
     }
 
     @GetMapping("/share")
     public LinkBean share() {
         checkAuthorization(session);
+        checkIsNotAnonymous(session);
         Account account = getUser(session, accountRepository).orElseThrow();
-        String token = service.shareClipboard(account)
-                .orElseThrow(() -> new UserNotFoundException(account.getId()));
-        return new LinkBean(token);
+        UUID device = (UUID) session.getAttribute(SessionAttributes.DEVICE);
+        Optional<Clipboard> clipboard = service.getClipboard(account);
+        if (clipboard.isPresent() && clipboard.get().hasContent()) {
+            if (Objects.equals(clipboard.get().getContent().getSource(), device)) {
+                String token = service.shareClipboard(account)
+                        .orElseThrow(() -> new UserNotFoundException(account.getId()));
+                return new LinkBean(token);
+            } else {
+                throw new UserAlreadyExistsException("your are not the owner of content");
+            }
+        }
+        throw new UserNotFoundException("empty clipboard");
     }
 
     @GetMapping("/shared/{token}")
-    @ResponseBody
-    public String shared(@PathVariable(name="token") String token)
-            throws IOException {
+    public RedirectView shared(@PathVariable(name="token") String token) {
         Optional<Clipboard> clipboard = service.getClipboardByToken(token);
-        String text;
-        if (clipboard.isEmpty()) {
-            text = "Content expired";
-        } else if (clipboard.get().getContentType() == ContentType.CLIPBOARD) {
-            text = clipboard.get().getContent().getData();
-        } else {
-            text = "Content is not supported";
+        if (clipboard.isPresent()) {
+            if (session.getAttribute(SessionAttributes.TOKEN) == null) {
+                if (session.getAttribute(SessionAttributes.USER_ID) != null) {
+                    //need re-load page
+                    session.invalidate();
+                } else {
+                    Long accountId = clipboard.get().getAccountId();
+                    Account account = accountRepository.findById(accountId).orElseThrow();
+                    session.setAttribute(SessionAttributes.USER_ID, account.getId());
+                    UUID device = UUID.randomUUID();
+                    session.setAttribute(SessionAttributes.DEVICE, device);
+                    session.setAttribute(SessionAttributes.TOKEN, token);
+                    service.registerDevice(account, device);
+                }
+            }
         }
-        Resource resource = resourceLoader.getResource("classpath:templates/shared-text.html");
-        String content = Files.readString(Paths.get(resource.getURI()), StandardCharsets.UTF_8);
-        return content.replace("${content}", text);
+        return new RedirectView("/");
     }
 
     @GetMapping("/logout")

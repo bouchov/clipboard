@@ -9,7 +9,7 @@ import java.security.SecureRandom;
  * Copyright 2014 ConnectiveGames LLC. All rights reserved.
  */
 public class IdGenerator {
-    private static final String DIC = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789#@";
+    private static final String DIC = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-@";
     private static final long MASK = 0x3FL;
 
     private static class Holder {
