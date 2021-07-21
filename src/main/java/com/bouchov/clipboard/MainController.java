@@ -56,12 +56,13 @@ public class MainController extends AbstractController {
         if (!Password.isEqual(account.getPassword(), password)) {
             throw new UserNotFoundException(name);
         }
-        session.setAttribute(SessionAttributes.ACCOUNT, account.getId());
+        accountId = account.getId();
+        session.setAttribute(SessionAttributes.ACCOUNT, accountId);
         if (device == null) {
             device = UUID.randomUUID();
         }
         session.setAttribute(SessionAttributes.DEVICE, device);
-        service.registerDevice(account.getId(), device);
+        service.registerDevice(accountId, device);
         session.removeAttribute(SessionAttributes.TOKEN);
         ResponseBean bean = new ResponseBean(account, device);
         Optional<Clipboard> clipboard = service.getClipboard(accountId);
@@ -101,14 +102,14 @@ public class MainController extends AbstractController {
         if (accountId == null) {
             throw new UserNotFoundException("session expired");
         }
-        Account user = accountRepository.findById(accountId)
+        Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new UserNotFoundException(accountId));
-        UUID token = (UUID) session.getAttribute(SessionAttributes.DEVICE);
+        UUID device = (UUID) session.getAttribute(SessionAttributes.DEVICE);
         ResponseBean bean;
         if (session.getAttribute(SessionAttributes.TOKEN) == null) {
-            bean = new ResponseBean(user, token);
+            bean = new ResponseBean(account, device);
         } else {
-            bean = new ResponseBean(token);
+            bean = new ResponseBean(device);
         }
         Optional<Clipboard> clipboard = service.getClipboard(accountId);
         clipboard.ifPresent(value -> bean.setContents(getContentsBean(value)));

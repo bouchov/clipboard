@@ -11,7 +11,6 @@ import com.bouchov.clipboard.entities.Account;
 public class AccountBean {
     private Long id;
     private String name;
-    private String password;
 
     public AccountBean(Account account) {
         this.id = account.getId();
@@ -26,10 +25,6 @@ public class AccountBean {
         return name;
     }
 
-    public String getPassword() {
-        return password;
-    }
-
     public void setId(Long id) {
         this.id = id;
     }
@@ -38,16 +33,11 @@ public class AccountBean {
         this.name = name;
     }
 
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
     @Override
     public String toString() {
         return "[AccountBean" +
                 " id=" + id +
                 ", name=" + (name == null ? null : '\'' + name + '\'') +
-                ", password=" + (password == null ? null : '\'' + password + '\'') +
                 ']';
     }
 }

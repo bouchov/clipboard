@@ -1,6 +1,7 @@
 package com.bouchov.clipboard.protocol;
 
 import com.bouchov.clipboard.entities.Account;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.util.List;
 import java.util.UUID;
@@ -11,6 +12,7 @@ import java.util.UUID;
  * Time: 11:13
  * Copyright 2014 ConnectiveGames LLC. All rights reserved.
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ResponseBean {
     private AccountBean account;
     private UUID device;
