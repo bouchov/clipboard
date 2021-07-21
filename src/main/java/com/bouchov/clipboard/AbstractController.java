@@ -15,11 +15,12 @@ import java.util.Optional;
  * Copyright 2014 ConnectiveGames LLC. All rights reserved.
  */
 public class AbstractController {
-    protected void checkAuthorization(HttpSession session) {
-        Long userId = (Long) session.getAttribute(SessionAttributes.USER_ID);
+    protected Long checkAuthorization(HttpSession session) {
+        Long userId = (Long) session.getAttribute(SessionAttributes.ACCOUNT);
         if (userId == null) {
             throw new AuthorizationRequiredException();
         }
+        return userId;
     }
 
     protected void checkIsNotAnonymous(HttpSession session) {
@@ -29,7 +30,7 @@ public class AbstractController {
     }
 
     protected Optional<Account> getUser(HttpSession session, AccountRepository repository) {
-        Long userId = (Long) session.getAttribute(SessionAttributes.USER_ID);
+        Long userId = (Long) session.getAttribute(SessionAttributes.ACCOUNT);
         if (userId == null) {
             return Optional.empty();
         }

@@ -95,9 +95,7 @@ class DeviceInfo extends WebForm {
     }
 
     doReload() {
-        if (this.mode === 'OWNER') {
-            this.initApplication()
-        }
+        this.initApplication()
     }
 
     initApplication() {
@@ -302,12 +300,15 @@ class ClipboardWindow extends WebForm {
         this.uploadView.style.display = 'none'
         if (deviceInfo.mode === 'GUEST') {
             disableAllButtons(this.element)
-            forInputs(this.name, 'textarea', area => {
-                area.disabled = true
+            this.textarea.disabled = true
+            forElementsTree(this.menuBar, 'SPAN', span => {
+                if (span.title !== 'Close') {
+                    span.style.display = 'none'
+                }
             })
         } else {
             let disabledShare = this.contents.length === 0
-            forInputs(this.name, 'button', input => {
+            forInputsTree(this.element, 'button', input => {
                 if (input.name === 'share') {
                     input.disabled = disabledShare
                 }
@@ -396,13 +397,10 @@ class ClipboardWindow extends WebForm {
     }
 
     showUploadFilesView() {
-        if (deviceInfo.mode === 'OWNER') {
-            if (this.currentView !== this.uploadView) {
-                this.hide()
-                this.currentView = this.uploadView
-                this.link = {token: undefined}
-                this.show()
-            }
+        if (this.currentView !== this.uploadView) {
+            this.hide()
+            this.currentView = this.uploadView
+            this.show()
         }
     }
 
@@ -410,7 +408,6 @@ class ClipboardWindow extends WebForm {
         if (this.currentView !== this.textVew) {
             this.hide()
             this.currentView = this.textVew
-            this.link = {token: undefined}
             this.show()
         }
     }
@@ -426,6 +423,7 @@ class ClipboardWindow extends WebForm {
             this.contents = contents;
         }
         this.blobs = []
+        this.link = {token: undefined}
         if (this.contents.length === 0) {
             this.currentView = this.textVew;
             this.textarea.value = '';
@@ -572,9 +570,7 @@ class ClipboardWindow extends WebForm {
     }
 
     doClear() {
-        if (deviceInfo.mode === 'OWNER') {
-            this.sendRecords([])
-        }
+        this.sendRecords([])
     }
 
     doSubmitDownload() {
@@ -598,11 +594,13 @@ class ClipboardWindow extends WebForm {
             content = this.contents[idx]
         }
         if (blob === undefined || blob.pos >= blob.size || content === undefined) {
-            //next file
+            if (blob && blob.pos >= blob.size) {
+                this.generateDownloadLink(idx, blob)
+            }
             do {
                 idx++
                 if (idx === this.contents.length) {
-                    this.generateDownloadLink()
+                    this.generateDownloadAllLink()
                     return
                 }
                 content = this.contents[idx]
@@ -641,20 +639,61 @@ class ClipboardWindow extends WebForm {
         }
     }
 
-    generateDownloadLink() {
+    generateDownloadAllLink() {
+        if (this.createZipFile()) {
+            this.downloadFileList.insertAdjacentHTML('beforeend',
+                '<div class="table-row">' +
+                '  <div class="table-cell" style="width: 100%">' +
+                '    <div class="table-cell-content">' +
+                '      <a href="#" onclick="return doDownloadAllFiles()">Скачать все файлы</a>' +
+                '    </div>' +
+                '  </div>' +
+                '</div>'
+            )
+        }
+    }
+
+    generateDownloadLink(idx, blob) {
+        let data = new Blob(blob.buffer, {type: blob.type})
+        let url = window.URL.createObjectURL(data)
+
+        let progress = document.getElementById('clipboardWindow-fileProgress' + idx)
+        let parent = progress.parentElement
+        parent.removeChild(progress)
+        let href = document.createElement('A')
+        parent.appendChild(href)
+        href.href = url
+        href.download = blob.name
+        href.innerText = 'Скачать'
+    }
+
+    createZipFile() {
+        try {
+            return new JSZip()
+        } catch (e) {
+            this.log.warn('JSZip is not available')
+        }
+    }
+
+    downloadAllFiles() {
+        let zip = this.createZipFile()
         this.blobs.forEach((blob, idx) => {
             let data = new Blob(blob.buffer, {type: blob.type})
-            let url = window.URL.createObjectURL(data)
-            
-            let progress = document.getElementById('clipboardWindow-fileProgress' + idx)
-            let parent = progress.parentElement
-            parent.removeChild(progress)
-            let href = document.createElement('A')
-            parent.appendChild(href)
-            href.href = url
-            href.download = blob.name
-            href.innerText = 'download'
+            let content = this.contents[idx]
+            zip.add(blob.name, data, {binary: true, date: content.data.lastModified})
         })
+        let data = zip.generate(true)
+
+        let href = document.createElement('A')
+        href.style.display = 'none'
+        let url = window.URL.createObjectURL(data)
+        href.href = url
+        href.download = 'clipboard.zip'
+        href.innerText = 'Скачать'
+        this.element.appendChild(href)
+        href.click()
+        this.element.removeChild(href)
+        window.URL.revokeObjectURL(url)
     }
 
     showProgress(idx, value, total) {
@@ -747,7 +786,7 @@ class ClipboardWindow extends WebForm {
                         messageWindow.showMessage(this.responseText, function() {form.show()})
                     }
                 };
-                this.sendGet(xhttp, '/share');
+                this.sendPost(xhttp, '/share');
             }
         }
     }
@@ -756,7 +795,7 @@ class ClipboardWindow extends WebForm {
         if (!this.anchor) {
             this.anchor = document.createElement('A')
         }
-        this.anchor.href = '/shared/' + link.token
+        this.anchor.href = '/share/' + link.token
         return '<A href="' + this.anchor.href + '">Ссылка ' + link.token + '</A>'
     }
 }
@@ -783,6 +822,11 @@ function doSubmitClipboard(event) {
 
 function doChangeInputFile(event) {
     clipboardWindow.onInputFileChanged()
+}
+
+function doDownloadAllFiles(event) {
+    clipboardWindow.downloadAllFiles()
+    return false
 }
 
 function clipboardWebsocketMessageHandler(event) {

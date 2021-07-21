@@ -18,8 +18,8 @@ public class Content {
     public Content() {
     }
 
-    public Content(Account account, ContentType type, UUID source, String data) {
-        this.accountId = account.getId();
+    public Content(Long accountId, ContentType type, UUID source, String data) {
+        this.accountId = accountId;
         this.type = type;
         this.source = source;
         this.data = data;

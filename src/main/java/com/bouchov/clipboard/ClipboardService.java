@@ -1,6 +1,5 @@
 package com.bouchov.clipboard;
 
-import com.bouchov.clipboard.entities.Account;
 import com.bouchov.clipboard.entities.Clipboard;
 import com.bouchov.clipboard.entities.Content;
 import org.springframework.web.socket.WebSocketSession;
@@ -25,17 +24,17 @@ public interface ClipboardService {
 
     void sendBinaryMessageToPipe(ByteBuffer buffer, WebSocketSession session);
 
-    Optional<Clipboard> getClipboard(Account account);
+    Optional<Clipboard> getClipboard(Long accountId);
 
     Optional<Clipboard> getClipboardByToken(String token);
 
-    void deleteContents(Account account);
+    void deleteContents(Long accountId);
 
     void setContents(List<Content> contents);
 
-    Optional<String> shareClipboard(Account account);
+    Optional<String> shareClipboard(Long accountId);
 
     void unregisterDevice(Long accountId, UUID device);
 
-    void registerDevice(Account account, UUID device);
+    void registerDevice(Long accountId, UUID device);
 }

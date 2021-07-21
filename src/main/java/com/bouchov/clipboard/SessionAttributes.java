@@ -7,7 +7,7 @@ package com.bouchov.clipboard;
  * Copyright 2014 ConnectiveGames LLC. All rights reserved.
  */
 public interface SessionAttributes {
-    String USER_ID = "USER_ID";
+    String ACCOUNT = "ACCOUNT";
     String DEVICE = "DEVICE";
     String TOKEN = "TOKEN";
 }

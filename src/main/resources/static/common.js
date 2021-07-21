@@ -267,9 +267,13 @@ function onInvertAll(id) {
 }
 
 function forInputs(id, inputType, callback) {
-    let element = document.getElementById(id);
+    let element = document.getElementById(id)
+    forInputsTree(element, inputType, callback)
+}
+
+function forInputsTree(element, inputType, callback) {
     let node = element.firstChild;
-    do {
+    while (node) {
         if (node.tagName === 'FORM') {
             let form = node;
             for (let i = 0; i < form.length; i++) {
@@ -278,9 +282,23 @@ function forInputs(id, inputType, callback) {
                     callback(input);
                 }
             }
+        } else if (node.firstChild) {
+            forInputsTree(node, inputType, callback)
         }
         node = node.nextSibling;
-    } while (node);
+    }
+}
+
+function forElementsTree(element, tagName, callback) {
+    let node = element.firstChild;
+    while (node) {
+        if (node.tagName === tagName) {
+            callback(node);
+        } else if (node.firstChild) {
+            forElementsTree(node, tagName, callback)
+        }
+        node = node.nextSibling;
+    }
 }
 
 

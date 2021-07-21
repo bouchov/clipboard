@@ -50,46 +50,43 @@ public class ClipboardServiceImpl
     }
 
     @Override
-    public void registerDevice(Account account, UUID device) {
-        log.debug("registerDevice: {}, device={}", account.getName(), device);
-        Container container = contents.get(account.getId());
+    public void registerDevice(Long accountId, UUID device) {
+        log.debug("registerDevice: {}, device={}", accountId, device);
+        Container container = contents.get(accountId);
         if (container == null) {
-            container = contents.computeIfAbsent(account.getId(), (id) -> new Container(id, device, null));
+            container = contents.computeIfAbsent(accountId, (id) -> new Container(id, device, null));
         }
         container.addDevice(device);
     }
 
     @Override
-    public void unregisterDevice(Long userId, UUID device) {
-        Optional<Account> optional = accountRepository.findById(userId);
-        if (optional.isPresent()) {
-            log.debug("unregisterDevice: {}, device={}", optional.get().getName(), device);
-            Container container = contents.get(userId);
-            if (container != null) {
-                container.removeDevice(device);
-                AtomicReference<String> oldToken = new AtomicReference<>();
-                contents.compute(userId, (id, c) -> {
-                    if (c != null && c.isEmpty()) {
-                        oldToken.set(c.token);
-                        return null;
-                    }
-                    return c;
-                });
-                if (oldToken.get() != null) {
-                    tokens.remove(oldToken.get());
+    public void unregisterDevice(Long accountId, UUID device) {
+        log.debug("unregisterDevice: {}, device={}", accountId, device);
+        Container container = contents.get(accountId);
+        if (container != null) {
+            container.removeDevice(device);
+            AtomicReference<String> oldToken = new AtomicReference<>();
+            contents.compute(accountId, (id, c) -> {
+                if (c != null && c.isEmpty()) {
+                    oldToken.set(c.token);
+                    return null;
                 }
+                return c;
+            });
+            if (oldToken.get() != null) {
+                tokens.remove(oldToken.get());
             }
         }
     }
 
     @Override
     public void disconnect(WebSocketSession session) {
-        Long userId = (Long) session.getAttributes().get(SessionAttributes.USER_ID);
+        Long accountId = (Long) session.getAttributes().get(SessionAttributes.ACCOUNT);
         UUID device = (UUID) session.getAttributes().get(SessionAttributes.DEVICE);
-        Optional<Account> optional = accountRepository.findById(userId);
+        Optional<Account> optional = accountRepository.findById(accountId);
         if (optional.isPresent()) {
             log.debug("disconnect: {}, device={}", optional.get().getName(), device);
-            Container container = contents.get(userId);
+            Container container = contents.get(accountId);
             if (container != null) {
                 container.removeConnection(device);
             }
@@ -98,8 +95,8 @@ public class ClipboardServiceImpl
 
     @Override
     public void connect(UUID device, UUID target, WebSocketSession session) {
-        Long userId = (Long) session.getAttributes().get(SessionAttributes.USER_ID);
-        Account account = accountRepository.findById(userId).orElseThrow();
+        Long accountId = (Long) session.getAttributes().get(SessionAttributes.ACCOUNT);
+        Account account = accountRepository.findById(accountId).orElseThrow();
         List<String> strings = session.getHandshakeHeaders().get("User-Agent");
         String ua = "Unknown/0.0 (Unknown; No)";
         if (strings != null && !strings.isEmpty()) {
@@ -127,46 +124,46 @@ public class ClipboardServiceImpl
 
         }
         container.addConnection(device, session);
-        sendMessage(userId, session, asMessage(new ResponseBean(true)));
+        sendMessage(accountId, session, asMessage(new ResponseBean(true)));
     }
 
     @Override
     public void sendMessage(UUID target, String message, WebSocketSession session) {
-        Long userId = (Long) session.getAttributes().get(SessionAttributes.USER_ID);
-        Container container = contents.get(userId);
+        Long accountId = (Long) session.getAttributes().get(SessionAttributes.ACCOUNT);
+        Container container = contents.get(accountId);
         if (container == null) {
-            throw new IllegalStateException("cannot find clipboard of user " + userId);
+            throw new IllegalStateException("cannot find clipboard of user " + accountId);
         }
 
         Optional<WebSocketSession> connection = container.getConnection(target);
         if (connection.isPresent()) {
             WebSocketSession dest = connection.get();
-            sendMessage(userId, dest, asMessage(message));
+            sendMessage(accountId, dest, asMessage(message));
         } else {
-            log.warn("sendMessage: unknown device: " + target + " of user " + userId);
-            throw new IllegalStateException("unknown device: " + target + " of user " + userId);
+            log.warn("sendMessage: unknown device: " + target + " of user " + accountId);
+            throw new IllegalStateException("unknown device: " + target + " of user " + accountId);
         }
     }
 
     @Override
     public void sendBinaryMessageToPipe(ByteBuffer buffer, WebSocketSession session) {
-        Long userId = (Long) session.getAttributes().get(SessionAttributes.USER_ID);
+        Long accountId = (Long) session.getAttributes().get(SessionAttributes.ACCOUNT);
         UUID device = (UUID) session.getAttributes().get(SessionAttributes.DEVICE);
-        Container container = contents.get(userId);
+        Container container = contents.get(accountId);
         if (container == null) {
-            throw new IllegalStateException("cannot find clipboard of user " + userId);
+            throw new IllegalStateException("cannot find clipboard of user " + accountId);
         }
         if (Objects.equals(container.owner, device)) {
             UUID target = container.target;
             Optional<WebSocketSession> connection = container.getConnection(target);
             if (connection.isPresent()) {
-                sendMessage(userId, connection.get(), asMessage(buffer));
+                sendMessage(accountId, connection.get(), asMessage(buffer));
             } else {
-                sendMessage(userId, session, asMessage(new ResponseBean(3, "pipe is not exist")));
+                sendMessage(accountId, session, asMessage(new ResponseBean(3, "pipe is not exist")));
                 throw new IllegalStateException("cannot send pipe, not an owner " + device);
             }
         } else {
-            sendMessage(userId, session, asMessage(new ResponseBean(2, "not an owner")));
+            sendMessage(accountId, session, asMessage(new ResponseBean(2, "not an owner")));
             throw new IllegalStateException("cannot send pipe, not an owner " + device);
         }
     }
@@ -187,11 +184,11 @@ public class ClipboardServiceImpl
         }
     }
 
-    private void sendMessage(Long userId, WebSocketSession session, WebSocketMessage<?> message) {
+    private void sendMessage(Long accountId, WebSocketSession session, WebSocketMessage<?> message) {
         try {
             session.sendMessage(message);
         } catch (IOException e) {
-            log.warn("unable to send message to " + userId, e);
+            log.warn("unable to send message to " + accountId, e);
         }
     }
 
@@ -208,8 +205,8 @@ public class ClipboardServiceImpl
     }
 
     @Override
-    public Optional<Clipboard> getClipboard(Account account) {
-        return getContents(contents.get(account.getId()));
+    public Optional<Clipboard> getClipboard(Long accountId) {
+        return getContents(contents.get(accountId));
     }
 
     private Optional<Clipboard> getContents(Container container) {
@@ -220,9 +217,9 @@ public class ClipboardServiceImpl
     }
 
     @Override
-    public void deleteContents(Account account) {
+    public void deleteContents(Long accountId) {
         AtomicReference<String> oldToken = new AtomicReference<>();
-        contents.computeIfPresent(account.getId(), (id, container) -> {
+        contents.computeIfPresent(accountId, (id, container) -> {
             oldToken.set(container.token);
             return container.copy(null, null);
         });
@@ -261,8 +258,8 @@ public class ClipboardServiceImpl
     }
 
     @Override
-    public Optional<String> shareClipboard(Account account) {
-        Container container = contents.get(account.getId());
+    public Optional<String> shareClipboard(Long accountId) {
+        Container container = contents.get(accountId);
         if (container != null) {
             //noinspection SynchronizationOnLocalVariableOrMethodParameter
             synchronized (container) {
@@ -270,6 +267,7 @@ public class ClipboardServiceImpl
                     generateToken(container);
                 }
             }
+            log.debug("user {} generated token '{}'", accountId, container.token);
             return Optional.of(container.token);
         }
         return Optional.empty();

@@ -33,7 +33,7 @@ public class SessionListener implements HttpSessionListener {
 
     @Override
     public void sessionDestroyed(HttpSessionEvent se) {
-        Long id = (Long) se.getSession().getAttribute(SessionAttributes.USER_ID);
+        Long id = (Long) se.getSession().getAttribute(SessionAttributes.ACCOUNT);
         log.info("destroy session of " + id);
         UUID device = (UUID) se.getSession().getAttribute(SessionAttributes.DEVICE);
         if (id != null) {
