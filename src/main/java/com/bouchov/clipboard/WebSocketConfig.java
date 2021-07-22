@@ -21,7 +21,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
 
         registry.addHandler(messageHandler(), "websocket")
-                .addInterceptors(new HttpSessionHandshakeInterceptor());
+                .addInterceptors(new HttpSessionHandshakeInterceptor())
+                .setAllowedOrigins("*")
+                .withSockJS();
     }
 
     @Bean
