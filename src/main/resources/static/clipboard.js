@@ -796,7 +796,7 @@ class ClipboardWindow extends WebForm {
             this.anchor = document.createElement('A')
         }
         this.anchor.href = '/share/' + link.token
-        return '<A href="' + this.anchor.href + '">Ссылка ' + link.token + '</A>'
+        return '<textarea style="width: 100%; resize: none" rows="1" disabled>' + this.anchor.href + '</textarea>'
     }
 }
 

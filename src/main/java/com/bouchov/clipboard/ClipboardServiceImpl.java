@@ -66,7 +66,7 @@ public class ClipboardServiceImpl
         if (container != null) {
             container.removeDevice(device);
             AtomicReference<String> oldToken = new AtomicReference<>();
-            contents.compute(accountId, (id, c) -> {
+            container = contents.compute(accountId, (id, c) -> {
                 if (c != null && c.isEmpty()) {
                     oldToken.set(c.token);
                     return null;
@@ -75,6 +75,9 @@ public class ClipboardServiceImpl
             });
             if (oldToken.get() != null) {
                 tokens.remove(oldToken.get());
+            }
+            if (container == null) {
+                log.debug("remove clipboard of {}", accountId);
             }
         }
     }
