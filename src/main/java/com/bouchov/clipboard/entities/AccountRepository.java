@@ -1,7 +1,10 @@
 package com.bouchov.clipboard.entities;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.CrudRepository;
 
+import java.util.Date;
 import java.util.Optional;
 
 /**
@@ -12,4 +15,6 @@ import java.util.Optional;
  */
 public interface AccountRepository extends CrudRepository<Account,Long> {
     Optional<Account> findByName(String name);
+
+    Page<Account> findAllByLastLoginBefore(Date expiration, Pageable pageable);
 }

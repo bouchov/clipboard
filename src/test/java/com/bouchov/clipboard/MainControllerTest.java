@@ -14,6 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
+import java.util.Date;
 import java.util.UUID;
 
 import static com.bouchov.clipboard.SessionAttributes.*;
@@ -41,7 +42,7 @@ public class MainControllerTest {
 
     @BeforeEach
     public void setUp() {
-        Account user = new Account(UniqSource.uniqueString("name"), Password.create(PASSWORD));
+        Account user = new Account(UniqSource.uniqueString("name"), Password.create(PASSWORD), new Date());
         testAccount = accountRepository.save(user);
     }
 

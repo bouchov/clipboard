@@ -56,6 +56,9 @@ public class MainController extends AbstractController {
         if (!Password.isEqual(account.getPassword(), password)) {
             throw new UserNotFoundException(name);
         }
+        account.setLastLogin(new Date());
+        accountRepository.save(account);
+
         accountId = account.getId();
         session.setAttribute(SessionAttributes.ACCOUNT, accountId);
         if (device == null) {
@@ -85,7 +88,7 @@ public class MainController extends AbstractController {
         if (account != null) {
             throw new UserAlreadyExistsException(name);
         }
-        account = new Account(name, Password.create(password));
+        account = new Account(name, Password.create(password), new Date());
         account = accountRepository.save(account);
 
         session.setAttribute(SessionAttributes.ACCOUNT, account.getId());

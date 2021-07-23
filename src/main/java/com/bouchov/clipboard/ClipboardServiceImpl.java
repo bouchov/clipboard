@@ -9,16 +9,24 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import javax.transaction.Transactional;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -34,16 +42,23 @@ public class ClipboardServiceImpl
         InitializingBean {
     private final Logger log = LoggerFactory.getLogger(ClipboardService.class);
 
+    @Value("${clipboard.gc.period:PT1H}")
+    private Duration gcPeriod;
+    @Value("${clipboard.gc.expire:P1D}")
+    private Duration expiredThreshold;
+    private volatile ScheduledFuture<?> gcTask;
+
     private final Map<String, Container> tokens;
     private final Map<Long, Container> contents;
     private final AccountRepository accountRepository;
-//    private final ThreadPoolTaskScheduler quizScheduler;
+    private final ThreadPoolTaskScheduler scheduler;
 
     @Autowired
     public ClipboardServiceImpl(
-            AccountRepository accountRepository) {
+            AccountRepository accountRepository,
+            ThreadPoolTaskScheduler scheduler) {
         this.accountRepository = accountRepository;
-//        this.quizScheduler = quizScheduler;
+        this.scheduler = scheduler;
 
         this.tokens = new ConcurrentHashMap<>();
         this.contents = new ConcurrentHashMap<>();
@@ -86,29 +101,25 @@ public class ClipboardServiceImpl
     public void disconnect(WebSocketSession session) {
         Long accountId = (Long) session.getAttributes().get(SessionAttributes.ACCOUNT);
         UUID device = (UUID) session.getAttributes().get(SessionAttributes.DEVICE);
-        Optional<Account> optional = accountRepository.findById(accountId);
-        if (optional.isPresent()) {
-            log.debug("disconnect: {}, device={}", optional.get().getName(), device);
-            Container container = contents.get(accountId);
-            if (container != null) {
-                container.removeConnection(device);
-            }
+        log.debug("disconnect: {}, device={}", accountId, device);
+        Container container = contents.get(accountId);
+        if (container != null) {
+            container.removeConnection(device);
         }
     }
 
     @Override
     public void connect(UUID device, UUID target, WebSocketSession session) {
         Long accountId = (Long) session.getAttributes().get(SessionAttributes.ACCOUNT);
-        Account account = accountRepository.findById(accountId).orElseThrow();
         List<String> strings = session.getHandshakeHeaders().get("User-Agent");
         String ua = "Unknown/0.0 (Unknown; No)";
         if (strings != null && !strings.isEmpty()) {
             ua = strings.get(0);
         }
-        log.debug("received connection: {}, device={}, UserAgent[{}]", account.getName(), device, ua);
-        Container container = contents.get(account.getId());
+        log.debug("received connection: {}, device={}, UserAgent[{}]", accountId, device, ua);
+        Container container = contents.get(accountId);
         if (container == null) {
-            container = contents.computeIfAbsent(account.getId(), (id) -> new Container(id, device, null));
+            container = contents.computeIfAbsent(accountId, (id) -> new Container(id, device, null));
         }
         if (target != null) {
             Optional<WebSocketSession> connection = container.getConnection(target);
@@ -121,8 +132,8 @@ public class ClipboardServiceImpl
                     throw new IllegalStateException("cannot register new pipe, already exists " + target + "->" + oldTarget);
                 }
             } else {
-                log.warn("connect: unknown device: " + target + " of user " + account.getName());
-                throw new IllegalStateException("unknown device: " + target + " of user " + account.getName());
+                log.warn("connect: unknown target: {} of user {}", target, accountId);
+                throw new IllegalStateException("unknown device: " + target + " of user " + accountId);
             }
 
         }
@@ -197,14 +208,43 @@ public class ClipboardServiceImpl
 
     @Override
     public void destroy() {
-        log.info("DESTROYED");
+        if (gcTask != null) {
+            gcTask.cancel(true);
+            gcTask = null;
+        }
         contents.clear();
         tokens.clear();
+        log.info("DESTROYED");
     }
 
     @Override
     public void afterPropertiesSet() {
+        scheduleGc(gcPeriod);
         log.info("INITIALIZED");
+    }
+
+    private void scheduleGc(Duration period) {
+        gcTask = scheduler.scheduleAtFixedRate(this::gc, Instant.now().plusSeconds(60), period);
+        log.debug("account gc scheduled at rate: " + period);
+    }
+
+    @Transactional
+    public synchronized void gc() {
+        log.debug("gc accounts");
+        int pageSize = 100;
+        Page<Account> page = accountRepository.findAllByLastLoginBefore(
+                Date.from(Instant.now().minus(expiredThreshold)),
+                Pageable.ofSize(pageSize));
+        if (page.hasContent()) {
+            page.get().forEach(accountRepository::delete);
+            log.debug("gc: {} accounts deleted", page.getSize());
+            if (page.hasNext()) {
+                log.debug("gc: schedule in 1 sec");
+                scheduler.schedule(this::gc, Instant.now().plusSeconds(1L));
+            }
+        } else {
+            log.debug("gc: no expired accounts");
+        }
     }
 
     @Override

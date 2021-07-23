@@ -17,14 +17,13 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 public class SchedulerConfig {
     private final Logger log = LoggerFactory.getLogger(SchedulerConfig.class);
 
-    @Value("${thread.pool.size}")
-    private int POOL_SIZE;
+    @Value("${thread.pool.size:5}")
+    private int poolSize;
 
     @Bean
     public ThreadPoolTaskScheduler quizScheduler(){
         ThreadPoolTaskScheduler threadPoolTaskScheduler
                 = new ThreadPoolTaskScheduler();
-        int poolSize = POOL_SIZE == 0 ? 3 : POOL_SIZE;
         threadPoolTaskScheduler.setPoolSize(poolSize);
         String namePrefix = "QuizScheduler-";
         threadPoolTaskScheduler.setThreadNamePrefix(namePrefix);

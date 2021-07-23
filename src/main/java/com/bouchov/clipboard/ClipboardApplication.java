@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
 import javax.transaction.Transactional;
+import java.util.Date;
 
 @SpringBootApplication
 public class ClipboardApplication {
@@ -26,7 +27,7 @@ public class ClipboardApplication {
                 logger.info("server already initialized");
                 return;
             }
-            admin = userRepository.save(new Account("admin", Password.create("Admin")));
+            admin = userRepository.save(new Account("admin", Password.create("Admin"), new Date()));
             userRepository.save(admin);
             logger.info("service successfully initialized");
         };
