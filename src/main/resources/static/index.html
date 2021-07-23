@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=yes">
     <title>Clipboard Application</title>
-    <link rel="stylesheet" type="text/css" href="/clipboard.css">
+    <link rel="stylesheet" type="text/css" href="clipboard.css">
 </head>
 <body onload="initApp()">
 <div id="loadingWindow" class="loading fade-in">
@@ -60,7 +61,7 @@
         <span class="menu-button" onclick="showUploadFilesClipboard()" title="Send files">&#128462;</span>
         <span class="menu-button" onclick="showTextClipboard()" title="Send text">&#84;</span>
         <span class="menu-button" onclick="doClearClipboard()" title="Clear">&#9003;</span>
-        <span class="menu-button" onclick="showLoginWindow()" title="Close">&cross;</span>
+        <span class="menu-button" onclick="doLogout()" title="Logout">&cross;</span>
     </div>
     <form class="modal-content animate">
         <h1>Clipboard</h1>
@@ -171,15 +172,15 @@
         <div class="table-footer"></div>
     </form>
 </div>
-<div id="deviceInfo" style="left: 100px; position: absolute;">
+<div id="deviceInfo" style="left: 1em; position: absolute;">
     <div id="deviceInfo-name">
         <p>Гостъ: device 1</p>
     </div>
 </div>
 </body>
 </html>
-<script type="text/javascript" src="/common.js"></script>
-<script type="text/javascript" src="/clipboard.js"></script>
+<script type="text/javascript" src="common.js"></script>
+<script type="text/javascript" src="clipboard.js"></script>
 <script>
     document.onreadystatechange = function() {
         if (document.readyState !== 'complete') {
@@ -195,8 +196,8 @@
         deviceInfo.initApplication();
     }
 
-    function showLoginWindow() {
-        loginWindow.show();
+    function doLogout() {
+        loginWindow.doLogout()
     }
 
     function showClipboardWindow() {

@@ -82,10 +82,13 @@ public class ClipboardServiceImpl
             container.removeDevice(device);
             AtomicReference<String> oldToken = new AtomicReference<>();
             container = contents.compute(accountId, (id, c) -> {
-                if (c != null && c.isEmpty()) {
-                    oldToken.set(c.token);
-                    return null;
+                if (c != null) {
+                    if (c.isEmpty() || Objects.equals(device, c.owner)) {
+                        oldToken.set(c.token);
+                        return null;
+                    }
                 }
+
                 return c;
             });
             if (oldToken.get() != null) {

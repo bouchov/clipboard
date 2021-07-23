@@ -261,6 +261,19 @@ class LoginWindow extends WebForm {
         };
         this.sendPost(xhttp, '/register', 'name=' + login + '&password=' + password)
     }
+
+    doLogout() {
+        this.log.log("LOGOUT")
+        let form = this
+        let xhttp = new XMLHttpRequest()
+        xhttp.onreadystatechange = function () {
+            if (this.status === 200) {
+                form.log.log('Signed-Out Successfully')
+                location.reload()
+            }
+        };
+        this.sendGet(xhttp, '/logout')
+    }
 }
 
 class ClipboardWindow extends WebForm {
