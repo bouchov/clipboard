@@ -158,6 +158,7 @@ public class ClipboardServiceImpl
             sendMessage(accountId, dest, asMessage(message));
         } else {
             log.warn("sendMessage: unknown device: " + target + " of user " + accountId);
+            sendMessage(accountId, session, asMessage(new ResponseBean(4, "Target is gone")));
             throw new IllegalStateException("unknown device: " + target + " of user " + accountId);
         }
     }

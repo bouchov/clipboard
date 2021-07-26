@@ -224,10 +224,11 @@ class LoginWindow extends WebForm {
                 form.log.warn('Need ReLogin: ' + this.status)
                 form.userPassword.value = password;
                 messageWindow.showMessage('Произошла ошибка. Попробуйте ещё раз.',
-                    function() {form.show()})
+                    () => {form.show()})
             } else {
                 form.log.warn('Login Failed: ' + this.status);
-                messageWindow.showMessage(this.responseText, function() {form.show()})
+                messageWindow.showMessage(this.responseText,
+                    () => {form.show()})
             }
         };
         if (deviceInfo.device) {
@@ -253,10 +254,11 @@ class LoginWindow extends WebForm {
                 form.log.warn('User already exists')
                 form.userPassword.value = password;
                 messageWindow.showMessage('Произошла ошибка. Попробуйте другой логин.',
-                    function() {form.show()})
+                    () => {form.show()})
             } else {
                 form.log.warn('Registration Failed: ' + this.status);
-                messageWindow.showMessage(this.responseText, function() {form.show()})
+                messageWindow.showMessage(this.responseText,
+                    () => {form.show()})
             }
         };
         this.sendPost(xhttp, '/register', 'name=' + login + '&password=' + password)
@@ -346,17 +348,35 @@ class ClipboardWindow extends WebForm {
     connect(device, target, callback) {
         if (!this.webSocket || this.webSocket.readyState !== WebSocket.OPEN) {
             let url = getWebsocketProtocol() + '://' + getUrl() + '/websocket';
-            this.log.log('connecting:', url)
+            this.log.log('WEBSOCKET: connecting to ', url)
             this.welcomeCallback = callback
             let form = this;
             this.webSocket = new WebSocket(url);
             this.webSocket.binaryType = "arraybuffer";
             this.webSocket.onopen = function () {
+                form.log.log('WEBSOCKET: connected to ', url, 'sending handshake')
                 form.sendWebSocket(JSON.stringify({enter: {device: device, target: target}}));
             }
             this.webSocket.onmessage = clipboardWebsocketMessageHandler;
-            this.webSocket.onclose = function () {
-                form.log.log("connection closed by server");
+            this.webSocket.onclose = function (event) {
+                form.log.log('WEBSOCKET: connection closed by server', event);
+                if (event.code === 4004) {
+                    form.log.log('WEBSOCKET: session expired');
+                    messageWindow.showMessage('Сессия истекла',
+                        () => {loginWindow.show()})
+                } else if (event.code === 4001) {
+                    form.log.log('WEBSOCKET: invalid device');
+                    messageWindow.showMessage('Данные устарели')
+                } else {
+                    form.log.log('WEBSOCKET: reconnecting');
+                    setTimeout(() => {
+                        form.connect(device, target, callback)
+                    }, 5000)
+                }
+            }
+            this.webSocket.onerror = function(err) {
+                form.log.warn('WEBSOCKET: error occur', err, 'Close socket')
+                form.webSocket.close()
             }
         }
     }
@@ -365,7 +385,7 @@ class ClipboardWindow extends WebForm {
         if (this.webSocket && this.webSocket.readyState === WebSocket.OPEN) {
             this.webSocket.onclose = null;
             this.webSocket.close();
-            this.log.log("close connection");
+            this.log.log("WEBSOCKET: close connection");
         }
         this.webSocket = undefined;
     }
@@ -394,7 +414,25 @@ class ClipboardWindow extends WebForm {
             }
         } else if (message.errorCode) {
             this.log.warn('error received: ', message);
-            messageWindow.showMessage(message.errorMessage)
+            let form = this;
+            if (message.errorCode === 4) {
+                this.log.warn('schedule download request in 5 sec')
+                setTimeout(() => {
+                    form.downloadSlice()
+                }, 5000)
+            } else if (message.errorCode === 404) {
+                let idx = this.blobs.length - 1
+                if (idx >= 0) {
+                    this.blobs[idx].status = 2
+                    this.log.warn('skip downloading ' + this.blobs[idx].name + ', move to next file')
+                }
+                messageWindow.showMessage(message.errorMessage, () => {
+                    form.show()
+                    form.downloadSlice()
+                })
+            } else {
+                messageWindow.showMessage(message.errorMessage)
+            }
         }
     }
 
@@ -576,7 +614,8 @@ class ClipboardWindow extends WebForm {
                 form.show()
             } else {
                 form.log.warn('error saving content: ', xhttp.responseText);
-                messageWindow.showMessage(this.responseText, function() {form.show()})
+                messageWindow.showMessage(this.responseText,
+                    () => {form.show()})
             }
         };
         this.sendJson(xhttp, '/clipboard', records);
@@ -606,8 +645,8 @@ class ClipboardWindow extends WebForm {
             blob = this.blobs[idx]
             content = this.contents[idx]
         }
-        if (blob === undefined || blob.pos >= blob.size || content === undefined) {
-            if (blob && blob.pos >= blob.size) {
+        if (blob === undefined || blob.status || content === undefined) {
+            if (blob && blob.status) {
                 this.generateDownloadLink(idx, blob)
             }
             do {
@@ -620,6 +659,7 @@ class ClipboardWindow extends WebForm {
                 blob = {
                     buffer: [],
                     pos: 0,
+                    status: 0,
                     name: content.data.name,
                     type: content.data.type,
                     size: content.data.size
@@ -646,6 +686,9 @@ class ClipboardWindow extends WebForm {
             let blob = this.blobs[idx]
             blob.buffer.push(buffer)
             blob.pos += buffer.byteLength
+            if (blob.pos >= blob.size) {
+                blob.status = 1; //finished
+            }
             this.showProgress(idx, blob.pos, blob.size)
             //next page
             this.downloadSlice()
@@ -667,17 +710,26 @@ class ClipboardWindow extends WebForm {
     }
 
     generateDownloadLink(idx, blob) {
-        let data = new Blob(blob.buffer, {type: blob.type})
-        let url = window.URL.createObjectURL(data)
+        if (blob.status === 1) {
+            let data = new Blob(blob.buffer, {type: blob.type})
+            let url = window.URL.createObjectURL(data)
 
-        let progress = document.getElementById('clipboardWindow-fileProgress' + idx)
-        let parent = progress.parentElement
-        parent.removeChild(progress)
-        let href = document.createElement('A')
-        parent.appendChild(href)
-        href.href = url
-        href.download = blob.name
-        href.innerText = 'Скачать'
+            let progress = document.getElementById('clipboardWindow-fileProgress' + idx)
+            let parent = progress.parentElement
+            parent.removeChild(progress)
+            let href = document.createElement('A')
+            parent.appendChild(href)
+            href.href = url
+            href.download = blob.name
+            href.innerText = 'Скачать'
+        } else if (blob.status === 2) {
+            let progress = document.getElementById('clipboardWindow-fileProgress' + idx)
+            let parent = progress.parentElement
+            parent.removeChild(progress)
+            let p = document.createElement('P')
+            parent.appendChild(p)
+            p.innerText = 'Ошибка'
+        }
     }
 
     createZipFile() {
@@ -773,7 +825,7 @@ class ClipboardWindow extends WebForm {
             if (this.link.token) {
                 form.hide()
                 messageWindow.showMessage(this.generateShareLink(this.link),
-                    function() {form.show()})
+                    () => {form.show()})
             } else {
                 let form = this;
                 let xhttp = new XMLHttpRequest();
@@ -785,18 +837,19 @@ class ClipboardWindow extends WebForm {
                         let link = JSON.parse(xhttp.responseText);
                         form.setLink(link)
                         messageWindow.showMessage(form.generateShareLink(link),
-                            function() {form.show()})
+                            () => {form.show()})
                     } else if (this.status === 409) {
                         form.log.warn('Cannot share. Your are not the owner of content')
                         messageWindow.showMessage('Произошла ошибка. Можно поделиться только своими данными.',
-                            function() {form.show()})
+                            () => {form.show()})
                     } else if (this.status === 404) {
                         form.log.warn('Cannot share. Empty clipboard')
                         messageWindow.showMessage('Произошла ошибка. Можно поделиться только своими данными.',
-                            function() {form.show()})
+                            () => {form.show()})
                     } else {
                         form.log.warn('error share content: ', xhttp.responseText);
-                        messageWindow.showMessage(this.responseText, function() {form.show()})
+                        messageWindow.showMessage(this.responseText,
+                            () => {form.show()})
                     }
                 };
                 this.sendPost(xhttp, '/share');

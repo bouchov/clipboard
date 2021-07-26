@@ -13,6 +13,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
+import java.io.IOException;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -24,6 +25,9 @@ import java.util.UUID;
  */
 @Component
 public class WebSocketHandler extends AbstractWebSocketHandler {
+    private static final CloseStatus SESSION_EXPIRED = new CloseStatus(4004, "session expired");
+    private static final CloseStatus INVALID_DEVICE = new CloseStatus(4001, "invalid device");
+
     private final Logger log = LoggerFactory.getLogger(WebSocketHandler.class);
 
     @Autowired
@@ -32,17 +36,30 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         super.afterConnectionEstablished(session);
+        Long accountId = (Long) session.getAttributes().get(SessionAttributes.ACCOUNT);
+        if (accountId == null) {
+            log.debug("received anonymous connection: close");
+            session.close(SESSION_EXPIRED);
+        }
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         super.afterConnectionClosed(session, status);
-
-        service.disconnect(session);
+        Long accountId = (Long) session.getAttributes().get(SessionAttributes.ACCOUNT);
+        if (accountId != null) {
+            service.disconnect(session);
+        }
     }
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+        Long accountId = (Long) session.getAttributes().get(SessionAttributes.ACCOUNT);
+        if (accountId == null) {
+            log.debug("received message from anonymous connection: close");
+            session.close(SESSION_EXPIRED);
+            return;
+        }
         RequestBean request = new ObjectMapper().readValue(message.getPayload(), RequestBean.class);
         log.debug("received message: {}", request);
         if (request.getEnter() != null) {
@@ -56,7 +73,7 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
                 service.connect(device, enter.getTarget(), session);
             } catch (Exception e) {
                 log.warn("error connecting client", e);
-                session.close();
+                session.close(INVALID_DEVICE);
             }
         } else if (request.getRecipient() != null) {
             service.sendMessage(request.getRecipient(), request.getMessage(), session);
@@ -66,8 +83,15 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
     }
 
     @Override
-    protected void handleBinaryMessage(WebSocketSession session, BinaryMessage message) {
-        log.debug("received binary message: {}", message.getPayloadLength());
-        service.sendBinaryMessageToPipe(message.getPayload(), session);
+    protected void handleBinaryMessage(WebSocketSession session, BinaryMessage message)
+            throws IOException {
+        Long accountId = (Long) session.getAttributes().get(SessionAttributes.ACCOUNT);
+        if (accountId != null) {
+            log.debug("received binary message: {}", message.getPayloadLength());
+            service.sendBinaryMessageToPipe(message.getPayload(), session);
+        } else {
+            log.debug("received binary message from anonymous connection: close");
+            session.close(SESSION_EXPIRED);
+        }
     }
 }
