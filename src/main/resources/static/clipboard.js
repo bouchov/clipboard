@@ -442,23 +442,26 @@ class ClipboardWindow extends WebForm {
     }
 
     onInputFileChanged() {
-        let diff = false
-        if (this.inputFile.files.length !== this.contents.length) {
-            diff = true
-        } else {
-            for (let i=0; i < this.inputFile.files.length; i++) {
-                let file = this.inputFile.files[i]
-                if (file.name !== this.contents[i].data.name) {
-                    diff = true
-                    break
-                }
-            }
-        }
+        let diff = this.isFileContentIsDiffer(this.contents)
         this.blobs = []
         this.file = undefined
         if (diff && this.contents.length > 0) {
             this.doClear()
         }
+    }
+
+    isFileContentIsDiffer(contents) {
+        if (this.inputFile.files.length !== contents.length) {
+            return true
+        } else {
+            for (let i=0; i < this.inputFile.files.length; i++) {
+                let file = this.inputFile.files[i]
+                if (file.name !== contents[i].data.name) {
+                    return  true
+                }
+            }
+        }
+        return false
     }
 
     showUploadFilesView() {
@@ -511,12 +514,16 @@ class ClipboardWindow extends WebForm {
                     form.currentView = form.uploadView;
                     this.downloadFileList.innerHTML = ''
                     this.uploadFileList.innerHTML = ''
-                    this.contents.forEach(function(content, idx) {
-                        form.writeUploadRecord(form.uploadFileList, idx, content)
-                    })
-                    this.writeShareButton(this.uploadFileList)
                     this.file = undefined
-                    this.connect(deviceInfo.device)
+                    if (!this.isFileContentIsDiffer(this.contents)) {
+                        this.contents.forEach(function(content, idx) {
+                            form.writeUploadRecord(form.uploadFileList, idx, content)
+                        })
+                        this.writeShareButton(this.uploadFileList)
+                        this.connect(deviceInfo.device)
+                    } else {
+                        this.log.warn('Contents are differ: must clean clipboard')
+                    }
                 } else {
                     form.currentView = form.downloadView;
                     this.downloadFileList.innerHTML = ''
