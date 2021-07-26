@@ -442,9 +442,23 @@ class ClipboardWindow extends WebForm {
     }
 
     onInputFileChanged() {
-        this.contents = []
+        let diff = false
+        if (this.inputFile.files.length !== this.contents.length) {
+            diff = true
+        } else {
+            for (let i=0; i < this.inputFile.files.length; i++) {
+                let file = this.inputFile.files[i]
+                if (file.name !== this.contents[i].data.name) {
+                    diff = true
+                    break
+                }
+            }
+        }
         this.blobs = []
         this.file = undefined
+        if (diff && this.contents.length > 0) {
+            this.doClear()
+        }
     }
 
     showUploadFilesView() {
@@ -476,8 +490,15 @@ class ClipboardWindow extends WebForm {
         this.blobs = []
         this.link = {token: undefined}
         if (this.contents.length === 0) {
-            this.currentView = this.textVew;
-            this.textarea.value = '';
+            if (this.currentView === this.uploadView) {
+                this.downloadFileList.innerHTML = ''
+                this.uploadFileList.innerHTML = ''
+                this.file = undefined
+            } else {
+                this.currentView = this.textVew;
+                this.textarea.value = '';
+            }
+            this.close()
         } else {
             let form = this
             let record = this.contents[0]
