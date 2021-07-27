@@ -62,7 +62,7 @@ label {
     overflow: auto;
     background-color: rgb(0,0,0);
     background-color: rgba(0,0,0,0.4);
-    padding-top: 5em;
+    padding-top: 3em;
 }
 
 .modal-content {
@@ -70,6 +70,14 @@ label {
     margin: 5px auto;
     border: 1px solid #888;
     width: 96%;
+    overflow-y: auto;
+}
+
+.modal-content:after {
+    content: '';
+    display: block;
+    height: 3em;
+    width: 100%;
 }
 
 .animate {
